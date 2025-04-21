@@ -255,6 +255,19 @@ For LAGK calibration, upstream flows are derived using [AdjustQ](https://publicw
 
 See [nwrfc-hydro R package](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models) for [equivalent Python code](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models/blob/main/py-rfchydromodels/utilities/adjustq.py).
 
+### Forcing Climatological Corrections
+
+In the NWRFC autocalibration scheme, mid-month climatological adjustment factors are optimized independently for each forcing variable—precipitation, temperature, precipitation typing, and potential evaporation.  To disable climatological corrections for MAT, MAP, PTPS, or PET:
+
+1. Remove any related lines in `pars_limits.csv` (e.g., `mat_shift_[LID]`)
+2.  Set the following in pars_default.csv for each variable:
+```
+[forcing]_scale = 1
+[forcing]_p_redist = 0
+[forcing]_std = 10
+[forcing]_shift = 0
+```
+     
 ## Credits and References
 
 Please cite the following work when using this tool:
