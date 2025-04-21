@@ -89,7 +89,7 @@ Refer to the example basins in the `runs/` directory for the expected directory 
 
 **Optional Files:**
 - `forcing_validation_cv_[fold #]_[LID]-[zone #].csv`: Forcing data for cross-validation folds. Note that the data for each cross validation fold must be created manually by subsetting your data, but any number of folds is possible. as long as they split the data into even groups. 
-- `upflow_[RR LID].csv`: Upstream flow data for routing reach (LAGK model). A reach may have more than one routed upstream flow input but this is uncommon. 
+- `upflow_[RR LID].csv`: Upstream flow data for routing reach (LAGK model). A reach may have more than one routed upstream flow input. 
 
 **Notes:**
 - `LID`: 5-character basin ID (e.g., `FSSO3`). Note that this is an arbitrary basin identification code, you may swap in any unique 5 character alphanumeric identifier. 
