@@ -50,6 +50,8 @@ basins = if(any(is.na(basins))){
 }else{
   basins
 }
+#remove cv_plots from the basins list
+basins <- basins[basins != "cv_plots"]
 
 # loop through each basin
 for(basin in basins){
@@ -129,8 +131,12 @@ for(basin in basins){
   obj_fun_check = c()
   #detect if all the cv and por runs are using the same objective function
   for(check_dir in c(cv_results_dir,por_results_dir)){
-    run_setting_check = read.table(file.path(basin_dir, check_dir, 'run_settings.txt'),
-                                   sep = ':',nrows=9,col.names=c('Run','Setting'))[-(1:2),]
+    #Search for --PARAMETER LIMITS-- text to be flexible with older versions
+    run_summary_text = readLines(file.path(basin_dir, check_dir, 'run_settings.txt'))
+    run_summary_length = grep("--PARAMETER LIMITS--",run_summary_text,fixed=TRUE) - 2
+    
+    run_setting_check = read.table(text=run_summary_text, sep = ':',nrows=run_summary_length,
+                                   col.names=c('Run','Setting'))[-(1:2),]
     obj_fun_check = c(obj_fun_check, 
                       run_setting_check[run_setting_check$Run=='Objective Function','Setting'])
   }
