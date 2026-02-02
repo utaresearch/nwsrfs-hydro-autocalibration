@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<parameters xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.wldelft.nl/fews/PI" xsi:schemaLocation="http://www.wldelft.nl/fews/PI https://fewsdocs.deltares.nl/schemas/version1.0/pi-schemas/pi_modelparameters.xsd" version="1.5">
+    <group id="default">
+        <parameter id="LAGQ_PAIRS">
+            <table>
+                <columnTypes A="double" B="double"/>
+                <row A="5" B="0.000"/>
+                <row A="6.000" B="1000000"/>
+            </table>
+        </parameter>
+        <parameter id="KQ_PAIRS">
+            <table>
+                <columnTypes A="double" B="double"/>
+                <row A="1" B="0.000"/>
+                <row A="1.5" B="1000011.0"/>
+            </table>
+        </parameter>
+        <parameter id="NUMBER_OF_KQ_PAIRS">
+            <intValue>2</intValue>
+        </parameter>
+        <parameter id="INFLOW_TS_DATA_TYPE">
+            <stringValue>QINE</stringValue>
+        </parameter>
+        <parameter id="OUTFLOW_TS_DATA_TYPE">
+            <stringValue>SQIN</stringValue>
+        </parameter>
+        <parameter id="TRANSMISSION_LOSS_THRESHOLD_FLOW">
+            <dblValue>0.0</dblValue>
+        </parameter>
+        <parameter id="METR_OR_ENGL_UNITS">
+            <stringValue>ENGL</stringValue>
+        </parameter>
+        <parameter id="INFLOW_TS_ID">
+            <stringValue>KEMT2</stringValue>
+        </parameter>
+        <parameter id="OUTFLOW_TS_INTERVAL">
+            <intValue>3</intValue>
+        </parameter>
+        <parameter id="INFLOW_TS_INTERVAL">
+            <intValue>3</intValue>
+        </parameter>
+        <parameter id="TRANSMISSION_LOSS_COEFFICIENT">
+            <dblValue>0.0</dblValue>
+        </parameter>
+        <parameter id="OUTFLOW_TS_ID">
+            <stringValue>KEMT2R</stringValue>
+        </parameter>
+        <parameter id="NUMBER_OF_LAGQ_PAIRS">
+            <intValue>2</intValue>
+        </parameter>
+        <parameter id="CONSTANT_K_VALUE">
+            <dblValue>0.0</dblValue>
+        </parameter>
+        <parameter id="CONSTANT_LAG_VALUE">
+            <dblValue>0.0</dblValue>
+        </parameter>
+    </group>
+</parameters>

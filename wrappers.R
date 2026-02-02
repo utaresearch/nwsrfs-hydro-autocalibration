@@ -225,6 +225,149 @@ model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs_ins
   if (return_flow) results_daily else c(obj_fun = obj)
 }
 
+uta_model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs_inst,
+                          forcing_raw, upflow, obj_fun, n_zones, cu_zones,
+                          return_flow = FALSE) {
+  # browser()
+
+  # update params with current iteration values
+  pars <- update_params(p, p_names, default_pars)
+
+  # write out a file specific to the process
+  # pid = Sys.getpid()
+  # nodename = tolower(Sys.info()['nodename'])
+  # fn = sprintf('%s_%s.txt',nodename,pid)
+  # cat(p,'\n',file = fn,append=TRUE)
+
+  # special case for consuse zones
+  # duplicate zone 1 params and replace the cu zone params with those
+  cu <- ifelse(length(cu_zones) > 0, TRUE, FALSE)
+  if (cu) {
+    # duplicate zone1 params
+    zone1_name <- names(forcing_raw)[1]
+
+    pars <- update_cu_params(pars, zone1_name, cu_zones)
+  }
+
+  # adjusted forcings
+  forcing_adj <- list()
+  if (n_zones > 0) {
+#    etd_m <- pars[substr(pars$name, 1, 3) == "etd", list(name,value) ]
+#    setnames(etd_m, "value", "adj")
+##   print(etd_m)
+#    peadj <- pars[pars$name == "peadj" & pars$type == 'sac', value ]
+    #forcing_adj <- fa_nwrfc(dt_hours, forcing_raw, pars)
+    forcing_adj[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], pars,  dry_run = FALSE)
+  } else {
+    forcing_adj <- forcing_raw
+  }
+  #print( forcing_adj )
+  # Run the model
+
+#  uhg <- list( constant_base_flow = default_pars[default_pars$name == "baseflow", "value" ],
+#                     uhg_interval = default_pars[default_pars$name == "interval", "value" ],
+#                     uhg_duration = default_pars[default_pars$name == "duration", "value" ],
+#                     drainage_area = default_pars[default_pars$name == "zone_area", "value" ],
+#		     oridnates = default_pars[substr(default_pars$name, 1,8) == "unit_ord", "value"]
+#		    )
+#
+#  uhg[[4]] <- uhg[[4]]* 2.58998811 # 1 square mile = 2.59 square kilometers
+#  setnames( uhg[[5]], "value", "ordinates" )
+#  uhg[[5]][, ordinates := ordinates / 35.3147 ]  # 35.3147 FT3 = 1 M3
+#  uhg[[5]][, ordinates := ordinates / 25.4 ]    # 1 IN = 25.4 MM
+#
+  if (is.null(upflow)) {
+    # !!includes chanloss but not consuse!!
+    #sim <- sac_only_uh(dt_hours, forcing_adj, pars, uhg)
+    sim <- sac_only_uh(dt_hours, forcing_adj, pars)
+  } else if (n_zones == 0) {
+    sim <- lagk(dt_hours, upflow, pars)
+    sim <- chanloss(sim, forcing_adj, dt_hours, pars)
+  } else {
+    # !!includes chanloss but not consuse!!
+    #sim <- sac_snow_uh_lagk(dt_hours, forcing_adj, upflow, pars)
+    sim <- sac_only_uh_lagk(dt_hours, forcing_adj, upflow, pars)
+  }
+
+  sim <- sim * 35.314684921034 #cms to cfs
+  # format instant sim as datatable
+  sim_inst <- as.data.table(forcing_adj[[1]][, c("year", "month", "day", "hour")])
+  sim_inst[, sim_flow_cfs := sim]
+
+#  write.csv(sim_inst, 
+#	  file = file.path("sim_flow_cfs.csv"), 
+#	  row.names = FALSE)
+  # compute 6 hour average from instantaneous values
+  sim_per_avg <- inst_to_ave(forcing_adj, sim)
+#  setnames( sim_per_avg, "sim_flow_cfs", "sim_flow_cms" )
+
+  # If consuse model is being used, need to recalculate the simulation to
+  # consider diversion/return flow
+  # !!This code will need to be updated to handle basins with multiple CU zones!!
+  if (cu) {
+    ### Daily calc
+
+    # to match CHPS PET has to be shifted back so it is included in previous day
+    sim_per_avg$pet <- forcing_adj[[1]] |>
+      mutate(pet_mm = lead(pet_mm)) |>
+      as_tibble() |>
+      fill(pet_mm) |>
+      select(pet_mm)
+
+    # consuse needs a different flow name and a pet timeseries
+    sim_daily <- sim_per_avg[, list(flow = mean(sim_flow_cfs), pet = sum(pet)), by = .(year, month, day)]
+    # run consuse, replace flow with adjusted flow from cu model
+    cu_out <- consuse(sim_daily, pars)
+
+    # If there are multiple CU zone then sum each zone into a single datatable
+    if (length(cu_zones) > 1) {
+      cu_out <- rbindlist(cu_out, .id = "zone") |>
+        group_by(month, day, year) |>
+        summarise(
+          qadj = sum(qadj),
+          qdiv = sum(qdiv),
+          qrfout = sum(qrfout),
+          .groups = "drop"
+        ) |>
+        as.data.table()
+    }
+
+    # Dont need flow or pet columns anymore, so remove it
+    # assign consuse qadj output
+    sim_daily$sim_flow_cfs <- cu_out$qadj
+    sim_daily <- subset(sim_daily, select = -c(flow, pet))
+
+    ### Inst calc
+    # apply daily consuse to 6 hour instantaneous data
+    sim_inst <- cu_out |>
+      as_tibble() |>
+      mutate(qnetdiv = qdiv - qrfout) |>
+      select(year, month, day, qnetdiv) |>
+      right_join(sim_inst, by = c("year", "month", "day")) |>
+      # to match CHPS the 00:00 value needs to be from the previous day
+      mutate(qnetdiv = lag(qnetdiv)) |>
+      fill(qnetdiv, .direction = "up") |>
+      mutate(sim_flow_cfs = sim_flow_cfs - qnetdiv) |>
+      select(-qnetdiv) |>
+      as.data.table()
+  } else {
+    sim_daily <- sim_per_avg[, list(sim_flow_cfs = mean(sim_flow_cfs)), by = .(year, month, day)]
+  }
+
+  # merge in the obs and cut off the first year
+  if (!is.null(obs_inst)) {
+    results_inst <- merge(sim_inst, as.data.table(obs_inst), by = c("year", "month", "day", "hour"))[-(1:365 * (24/dt_hours))]
+  }
+  results_daily <- merge(sim_daily, as.data.table(obs_daily), by = c("year", "month", "day"))[-(1:365)]
+  #print(results_daily)
+
+  # browser()
+
+  obj <- get(paste0(obj_fun, "_obj"))(results_daily, results_inst)
+
+  if (return_flow) results_daily else c(obj_fun = obj)
+}
+
 run_controller_edds <- function(lower, upper, basin, dt_hours, default_pars,
                                 obs_daily, obs_inst, forcing, upflow = NULL,
                                 obj_fun = "rmse", n_zones, cu_zones = character(0),
@@ -235,7 +378,8 @@ run_controller_edds <- function(lower, upper, basin, dt_hours, default_pars,
   t_iter <- ifelse(lite, 2500, 5000)
 
   out <- ep_dds(
-    fn = model_wrapper,
+    #fn = model_wrapper,
+    fn = uta_model_wrapper,
     p_bounds = data.frame(name = names(lower), min = unname(lower), max = unname(upper)),
     t_iter = t_iter,
     n_cores = n_cores,
@@ -321,7 +465,8 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
   message("===============================================================================================")
   message("* Daily Flow Metrics Displayed                                                   ")
 
-  sim <- model_wrapper(p = p_best, ..., return_flow = TRUE)[-(1:365 * 4)]
+  #sim <- model_wrapper(p = p_best, ..., return_flow = TRUE)[-(1:365 * (24/dt_hours))]
+  sim <- fn(p = p_best, ..., return_flow = TRUE)[-(1:365 * (24/dt_hours))]
   nse_best <- NSE(sim$sim_flow_cfs, sim$flow_cfs)
   pbias_best <- pbias(sim$sim_flow_cfs, sim$flow_cfs)
   R2_best <- rPearson(sim$sim_flow_cfs, sim$flow_cfs)^2
@@ -369,7 +514,8 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
     ep_dds_results <- clusterCall(
       cl = my_cluster,
       dds,
-      fn = model_wrapper,
+      #fn = model_wrapper,
+      fn = fn,
       p_bounds = p_bounds[, c("name", "max", "min")],
       f_best = f_best,
       p_best = p_best,
@@ -414,7 +560,8 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
       # print statement in case there are concerns about the random number generation
       # print(unlist(ep_dds['f_best',]))
 
-      sim <- model_wrapper(p = p_best, ..., return_flow = TRUE)[-(1:365 * 4)]
+      #sim <- model_wrapper(p = p_best, ..., return_flow = TRUE)[-(1:365 * 4)]
+      sim <- fn(p = p_best, ..., return_flow = TRUE)[-(1:365 * (24/dt_hours))]
 
       nse_best <- NSE(sim$sim_flow_cfs, sim$flow_cfs)
       pbias_best <- pbias(sim$sim_flow_cfs, sim$flow_cfs)
@@ -511,4 +658,33 @@ dds <- function(fn, p_bounds, f_best, p_best, f_trace, p_trace, c_iter,
   return(list(
     f_best = f_best, p_best = p_best, f_trace = f_trace, p_trace = p_trace, seed = worker_seed
   ))
+}
+
+simple_model_wrapper <- function(p, p_names, default_pars, dt_hours, forcing_raw, 
+                          return_flow = FALSE) {
+  # browser()
+
+  # Run the model
+
+  pars <- update_params(p, p_names, default_pars)
+
+  #print("params ================= ")
+  #print( pars)
+  # !!includes chanloss but not consuse!!
+  sim <- sac_only(dt_hours, forcing_raw, pars)
+
+}
+
+replace_missing_by_name <- function(target, source, missing_val = -999) {
+
+  if (!is.numeric(target) || !is.numeric(source)) {
+    stop("Both target and source must be numeric vectors.")
+  }
+  if (is.null(names(target)) || is.null(names(source))) {
+    stop("Both vectors must have names.")
+  }
+
+  idx <- target == missing_val & names(target) %in% names(source)
+  target[idx] <- source[names(target)[idx]]
+  return(target)
 }

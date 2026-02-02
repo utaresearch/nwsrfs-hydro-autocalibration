@@ -3,6 +3,11 @@
 # Written by Cameron Bracken and Geoffrey Walters (2025)
 # Please see the LICENSE file for license information
 
+
+#.libPaths(c('/opt/RLibs/nwrfc', .libPaths()))
+.libPaths(c('/data/zcui/bin/R/library', .libPaths()))
+
+
 # install.packages(c('xfun','import','devtools'))
 xfun::pkg_load2(
   "magrittr", "dplyr", "data.table", "dtplyr", "hydroGOF",
@@ -17,7 +22,8 @@ import::from(
 select <- dplyr::select
 import::from(
   data.table, as.data.table, data.table, fread, merge.data.table, copy,
-  melt.data.table, rbindlist, dcast.data.table, fwrite, setnames, nafill
+  melt.data.table, rbindlist, dcast.data.table, fwrite, setnames, nafill,
+  setDT
 )
 import::from(dtplyr, lazy_dt)
 import::from(rtop, sceua)
@@ -36,6 +42,8 @@ import::from(
   clusterCall, nextRNGStream, stopCluster
 )
 import::from(vctrs, vec_fill_missing)
+library(xml2)
+library(XML)
 ##############################################################################
 # !!To ensure correct parameter/forcings/upstream flow get mapped correctly to
 # intended zone/process. The default or optimal parameter file, forcing list, and
@@ -44,10 +52,12 @@ import::from(vctrs, vec_fill_missing)
 
 import::from(
   rfchydromodels, sac_snow_uh, sac_snow_uh_lagk, lagk, sac_snow, sac_snow_states,
-  uh, consuse, chanloss, fa_nwrfc
+  uh, consuse, chanloss, fa_nwrfc, apply_pe_adj, sac_only_uh, sac_only_uh_lagk
 )
 source("wrappers.R")
 source("obj_fun.R")
+source("get_fews_forcing.R")
+source("fews_lagk_pars.R")
 
 parser <- arg_parser("Auto-calibration run controller", hide.opts = TRUE)
 
@@ -88,7 +98,7 @@ optimizer <- "edds"
 overwrite <- args$overwrite
 lite <- args$lite
 n_cores <- args$num_cores
-dt_hours <- 6
+#dt_hours <- 3
 
 # SET UP NUMBER OF CORES TO USE FOR OPTIMIZATION
 # if a number is passed then convert from string to number
@@ -208,6 +218,11 @@ cu_zones <- zones |>
 n_cu_zones <- length(cu_zones)
 cu <- ifelse(length(cu_zones) > 0, TRUE, FALSE)
 
+#get the simulation time steps
+#Assumes the unit hydrograph has the same interval as the input forcing-.
+dt_hours <- default_pars[ name == "interval" & type == "uh", value ]
+
+
 # Get limits file
 limits <- fread(file.path(basin_dir, paste0("pars_limits.csv")))
 lower <- limits$lower
@@ -218,7 +233,8 @@ names(upper) <- limits$name
 # Get forcings
 forcing_raw <- list()
 for (zone in zones) {
-  forcing_raw[[zone]] <- fread(file.path(basin_dir, paste0("forcing_por_", zone, ".csv")))
+#  forcing_raw[[zone]] <- fread(file.path(basin_dir, paste0("forcing_por_", zone, ".csv")))
+  forcing_raw[[zone]] <- get_fews_forcing(file.path(basin_dir, paste0("forcing_por_", zone, ".xml")))
 }
 
 ### Get Streamflow data
@@ -251,7 +267,8 @@ if (logic_inst) {
     right_join(
       forcing_raw[[1]] |>
         as.data.table() |>
-        select(-c("map_mm", "mat_degc", "ptps")),
+        #select(-c("map_mm", "mat_degc", "ptps")),
+        select(-c("map_mm", "mpe_mm")),
       by = c("year", "month", "day", "hour")
     ) |>
     as.data.table()
@@ -263,20 +280,26 @@ if (logic_inst) {
 upflow_files <- list.files(basin_dir, "upflow_*", full.names = TRUE) |> sort()
 n_upstream <- length(upflow_files)
 upflow <- NULL
+lagk_pars <- NULL
 if (n_upstream > 0) {
-  upstream_lids <- gsub("upflow_", "", gsub(".csv", "", basename(upflow_files)))
+  upstream_lids <- gsub("upflow_", "", gsub("\\.csv.*", "", basename(upflow_files)))
+  print(upstream_lids)
   upflow <- list()
+  lagk_pars <- list()
   for (u in 1:n_upstream) {
     upflow[[upstream_lids[u]]] <- fread(upflow_files[u]) |>
       right_join(
         forcing_raw[[1]] |>
           as.data.table() |>
-          dplyr::select(-c("map_mm", "mat_degc", "ptps")),
+          #dplyr::select(-c("map_mm", "mat_degc", "ptps")),
+          dplyr::select(-c("map_mm", "mpe_mm")),
         by = c("year", "month", "day", "hour")
       ) |>
       mutate(flow_cfs = vctrs::vec_fill_missing(flow_cfs, max_fill = 4)) |>
       as_tibble()
+      lagk_pars[[upstream_lids[u]]] <- get_lagk_params(file.path( basin_dir, paste0("LAGK_",basin,"_",upstream_lids[u], "_UpdateStates.xml")))
   }
+  default_pars <- add_lagk_pars_to_default_pars( lagk_pars, default_pars)
 }
 
 # if we are doing cross validation, set the observations during the cv period to NA
@@ -342,6 +365,28 @@ tryCatch(
   }
 )
 
+########################################################################
+#################### Run the control case
+#########################################################################
+defaults <- default_pars$value
+names(defaults) <- paste0(default_pars$name, '_', default_pars$zone )
+defaults <- replace_missing_by_name(defaults, lower)
+
+control_sim_daily <- uta_model_wrapper(defaults, names(defaults), dt_hours, default_pars, obs_daily, obs_inst,
+  forcing_raw, upflow, obj_fun, n_zones, cu_zones,
+  return_flow = TRUE
+)
+write.csv(control_sim_daily, 
+	  file = file.path(output_path, "control_sim_flow.csv"), 
+	  row.names = FALSE)
+
+control_gof <- with(control_sim_daily, gof(sim_flow_cfs, flow_cfs))
+
+file.path(output_path, "control_stats.txt") |> sink()
+cat("--CONTROL STATISTICS-- ", "\n")
+control_gof |> print()
+sink()
+#browser()
 
 ########################################################################
 #################### Optimization
@@ -410,7 +455,13 @@ ggsave(sprintf("%s/trajectories_best.pdf", plot_path), ptraj, width = 10, height
 ### Get optimized parameters
 optimal_pars <- update_params(p_optimal, names(lower), default_pars)
 if (n_zones > 0) {
-  forcing <- fa_nwrfc(dt_hours, forcing_raw, optimal_pars)
+#  etd_m <- optimal_pars[substr(name, 1, 3) == "etd", list(name,value) ]
+#  setnames(etd_m, "value", "adj")
+#  peadj <- optimal_pars[name=="peadj" & type=="sac", value]
+  forcing <- list()
+#  forcing[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], etd_m, peadj,  dry_run = FALSE)
+  forcing[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], optimal_pars,  dry_run = FALSE)
+  #forcing <- fa_nwrfc(dt_hours, forcing_raw, optimal_pars)
 } else {
   forcing <- forcing_raw
 }
@@ -423,10 +474,14 @@ if (cu) {
 optimal_pars <- optimal_pars[order(zone, name)]
 
 # get optimized daily simulation
-optimal_sim_daily <- model_wrapper(p_optimal, names(lower), dt_hours, optimal_pars, obs_daily, obs_inst,
+#optimal_sim_daily <- model_wrapper(p_optimal, names(lower), dt_hours, optimal_pars, obs_daily, obs_inst,
+optimal_sim_daily <- uta_model_wrapper(p_optimal, names(lower), dt_hours, optimal_pars, obs_daily, obs_inst,
   forcing_raw, upflow, obj_fun, n_zones, cu_zones,
   return_flow = TRUE
 )
+write.csv(optimal_sim_daily, 
+	  file = file.path(output_path, "optimum_sim_flow.csv"), 
+	  row.names = FALSE)
 
 # write csv output
 write.csv(optimal_pars, file = file.path(output_path, "pars_optimal.csv"), row.names = FALSE, quote = FALSE)

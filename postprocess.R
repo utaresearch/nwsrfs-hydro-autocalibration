@@ -3,6 +3,10 @@
 # Written by Cameron Bracken and Geoffrey Walters (2025)
 # Please see the LICENSE file for license information
 
+.libPaths(c('/data/zcui/bin/R/library', .libPaths()))
+library(xml2)
+library(XML)
+
 # install.packages(c('xfun','import','devtools'))
 xfun::pkg_load2(
   "magrittr", "dplyr", "data.table", "dtplyr", "hydroGOF",
@@ -48,10 +52,11 @@ import::from(vctrs, vec_fill_missing)
 import::from(
   rfchydromodels, sac_snow_uh, sac_snow, sac_snow_states, lagk, sac_snow_uh_lagk, lagk,
   forcing_adjust_map_pet_ptps, forcing_adjust_mat, uh, pet_hs, uh2p_get_scale, uh2p_cfs_in,
-  consuse, fa_nwrfc, fa_adj_nwrfc, chanloss, rsnwelev
+  consuse, fa_nwrfc, fa_adj_nwrfc, chanloss, rsnwelev, apply_pe_adj, sac_only_uh, sac_only, sac_only_states, sync_uh, sac_only_uh_lagk
 )
 source("wrappers.R")
 source("obj_fun.R")
+source("get_fews_forcing.R")
 
 parser <- arg_parser("Auto-calibration postprocessor", hide.opts = TRUE)
 
@@ -143,6 +148,7 @@ for (basin in basins) {
     optimal_pars <- fread(file.path(output_path, "pars_optimal.csv"))
     optimal_pars <- optimal_pars[order(zone, name)]
 
+    dt_hours <- optimal_pars[ name == "interval" & type == "uh", value ]
     # Get zone configuration
     zones <- optimal_pars$zone |>
       unique() |>
@@ -168,9 +174,13 @@ for (basin in basins) {
     # forcing data
     forcing_raw <- list()
     for (zone in zones) {
-      forcing_raw[[zone]] <- fread(file.path(basin_dir, paste0("forcing_por", "_", zone, ".csv")))
+      #forcing_raw[[zone]] <- fread(file.path(basin_dir, paste0("forcing_por", "_", zone, ".csv")))
+      forcing_raw[[zone]] <- get_fews_forcing(file.path(basin_dir, paste0("forcing_por_", zone, ".xml")))
     }
     # Special process to get a full simulation for a autocalibration run on subset of the AORC POR
+    forcing <- list()
+    ######
+    #WILL NOT WORK IF n_zones > 1
     if (full_sim_for_partial_calb & n_zones > 0) {
       forcing_raw_subset <- list()
       for (zone in zones) {
@@ -180,17 +190,21 @@ for (basin in basins) {
           select(-wyear) |>
           as.data.table()
       }
-      forcing_subset_climo <- fa_adj_nwrfc(dt_hours, forcing_raw_subset, optimal_pars, return_climo = TRUE) |>
+      #forcing_subset_climo <- fa_adj_nwrfc(dt_hours, forcing_raw_subset, optimal_pars, return_climo = TRUE) |>
+      forcing_subset_climo <- list()
+      forcing_subset_climo[[1]] <- apply_pe_adj(dt_hours, forcing_raw_subset[[1]], optimal_pars,  dry_run = FALSE) |>
         data.matrix()
       if (n_zones > 0) {
-        forcing <- fa_nwrfc(dt_hours, forcing_raw, optimal_pars, climo = forcing_subset_climo)
+        #forcing <- fa_nwrfc(dt_hours, forcing_raw, optimal_pars, climo = forcing_subset_climo)
+        forcing[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], optimal_pars,  dry_run = FALSE)
       } else {
         forcing <- forcing_raw
       }
     } else {
       forcing_raw_subset <- forcing_subset_climo <- NULL
       if (n_zones > 0) {
-        forcing <- fa_nwrfc(dt_hours, forcing_raw, optimal_pars)
+        #forcing <- fa_nwrfc(dt_hours, forcing_raw, optimal_pars)
+        forcing[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], optimal_pars,  dry_run = FALSE)
       } else {
         forcing <- forcing_raw
       }
@@ -219,7 +233,8 @@ for (basin in basins) {
         right_join(
           forcing_raw[[1]] |>
             as.data.table() |>
-            dplyr::select(-c("map_mm", "mat_degc", "ptps")),
+            #dplyr::select(-c("map_mm", "mat_degc", "ptps")),
+            dplyr::select(-c("map_mm", "mpe_mm")),
           by = c("year", "month", "day", "hour")
         ) |>
         as_tibble()
@@ -239,7 +254,8 @@ for (basin in basins) {
           right_join(
             forcing_raw[[1]] |>
               as.data.table() |>
-              dplyr::select(-c("map_mm", "mat_degc", "ptps")),
+             #dplyr::select(-c("map_mm", "mat_degc", "ptps")),
+            dplyr::select(-c("map_mm", "mpe_mm")),
             by = c("year", "month", "day", "hour")
           ) |>
           mutate(flow_cfs = vctrs::vec_fill_missing(flow_cfs, max_fill = 4)) |>
@@ -254,15 +270,18 @@ for (basin in basins) {
 
     if (n_upstream == 0) {
       # no routing, includes chanloss
-      optimal_sim_raw <- sac_snow_uh(dt_hours, forcing, optimal_pars)
+      optimal_sim_raw <- sac_only_uh(dt_hours, forcing, optimal_pars)
     } else if (n_zones == 0) {
       # route only
       optimal_sim_raw <- lagk(dt_hours, upflow, optimal_pars)
       optimal_sim_raw <- chanloss(optimal_sim_raw, forcing, dt_hours, optimal_pars)
     } else {
       # local+routing, includes chanloss
-      optimal_sim_raw <- sac_snow_uh_lagk(dt_hours, forcing, upflow, optimal_pars)
+      #optimal_sim_raw <- sac_snow_uh_lagk(dt_hours, forcing, upflow, optimal_pars)
+      optimal_sim_raw <- sac_only_uh_lagk(dt_hours, forcing, upflow, optimal_pars)
     }
+
+    optimal_sim_raw <- optimal_sim_raw * 35.314684921034 #cms to cfs
 
     # Get optimal sim runs for different time steps
     optimal_sim_6hr_inst <- forcing[[1]][, c("year", "month", "day", "hour")]
@@ -276,16 +295,23 @@ for (basin in basins) {
     # Get sac and snow states
     if (n_zones > 0) {
       # re-run the optimal state sim
-      optimal_states_6hr <- sac_snow_states(dt_hours, forcing, optimal_pars) |>
+      #optimal_states_6hr <- sac_snow_states(dt_hours, forcing, optimal_pars) |>
+      optimal_states_6hr <- sac_only_states(dt_hours, forcing, optimal_pars) |>
         as.data.table() |>
         set_names(~ str_replace_all(.x, zone_lookup))
-      tci <- sac_snow(6, forcing, optimal_pars)
+      #tci <- sac_snow(6, forcing, optimal_pars)
+      tci <- sac_only(dt_hours, forcing, optimal_pars)
       if (n_zones > 1) {
-        zone_flow_cfs_raw <- uh(6, tci, optimal_pars, sum_zones = FALSE)
+        #zone_flow_cfs_raw <- uh(6, tci, optimal_pars, sum_zones = FALSE)
+        zone_flow_cfs_raw <- sync_uh(dt_hours, tci, optimal_pars, sum_zones = FALSE)
       } else {
-        zone_flow_cfs_raw <- uh(6, tci, optimal_pars) |>
+        zone_flow_cfs_raw <- sync_uh(dt_hours, tci, optimal_pars) |>
           as.data.frame()
       }
+
+      zone_flow_cfs_raw <- zone_flow_cfs_raw * 35.314684921034 #cms to cfs
+      tci <- tci * 35.314684921034 #cms to cfs
+
       colnames(zone_flow_cfs_raw) <- paste0("flow_", zones)
 
       optimal_states_6hr <- cbind(optimal_states_6hr, zone_flow_cfs_raw)
@@ -413,7 +439,7 @@ for (basin in basins) {
 
       # write the validation period simulations
       write_csv(valid_sim_daily, file.path(output_path, "validation_daily.csv"))
-      write_csv(valid_sim_6hr_inst, file.path(output_path, "validation_6hr_inst.csv"))
+      write_csv(valid_sim_6hr_inst, file.path(output_path, paste0("validation_", dt_hours, "hr_inst.csv")))
 
       # cut out the validation period
       optimal_sim_daily <- anti_join(optimal_sim_daily, forcing_valid_fold_daily,
@@ -431,7 +457,7 @@ for (basin in basins) {
           by = c("year", "month", "day", "hour")
         ) |> as.data.table()
 
-        write_csv(valid_states_6hr, file.path(output_path, "validation_states_6hr.csv"))
+        write_csv(valid_states_6hr, file.path(output_path, paste0("validation_states_", dt_hours,"hr.csv")))
 
         optimal_states_6hr <- anti_join(optimal_states_6hr, forcing_valid_fold,
           by = c("year", "month", "day", "hour")
@@ -479,9 +505,9 @@ for (basin in basins) {
     }
 
     write_csv(optimal_sim_daily, file.path(output_path, "optimal_daily.csv"))
-    write_csv(optimal_sim_6hr_inst, file.path(output_path, "optimal_6hr_inst.csv"))
+    write_csv(optimal_sim_6hr_inst, file.path(output_path, paste0("optimal_", dt_hours, "hr_inst.csv")))
     if (n_zones > 0) {
-      write_csv(optimal_states_6hr, file.path(output_path, "optimal_states_6hr.csv"))
+      write_csv(optimal_states_6hr, file.path(output_path, paste0("optimal_states_", dt_hours, "hr.csv")))
     }
     if (n_upstream != 0) {
       write_csv(optimal_routed, file.path(output_path, "optimal_routed_flow.csv"))
@@ -494,59 +520,60 @@ for (basin in basins) {
     ###################
     # ADC table csv
     ###################
-    adc_y <- seq(0, 1, by = 0.1)
-    adc_step_crawl <- .0001
-    adc_sf <- 1 / adc_step_crawl
+#    adc_y <- seq(0, 1, by = 0.1)
+#    adc_step_crawl <- .0001
+#    adc_sf <- 1 / adc_step_crawl
+#
+#    for (z in zones) {
+#      # skip if zone is a glacier
+#      # if(str_detect(z,'-G')) next
+#
+#      adc_x <- rep(0, 11)
+#      adc_pars <- optimal_pars[name %in% paste0("adc_", letters[1:3]) & zone == z]$value
+#      adc_x_crawl <- 1 + adc_step_crawl
+#      adc_y_crawl <- 1 + adc_step_crawl
+#      for (j in length(adc_y):1) {
+#        while (as.integer(adc_y_crawl * adc_sf) > as.integer(adc_y[j] * adc_sf) &
+#          as.integer(adc_x_crawl * adc_sf) > as.integer(.05 * adc_sf)) {
+#          adc_x_crawl <- adc_x_crawl - adc_step_crawl
+#          adc_y_crawl <- adc_pars[1] * adc_x_crawl^adc_pars[2] + (1 - adc_pars[1]) * adc_x_crawl^adc_pars[3]
+#        }
+#        adc_x[j] <- adc_x_crawl
+#      }
+#      adc <- data.frame(`We_Ai` = adc_y, As = adc_x)
+#      fwrite(adc, file.path(output_path, sprintf("adc_%s.csv", z)))
+#    }
 
-    for (z in zones) {
-      # skip if zone is a glacier
-      # if(str_detect(z,'-G')) next
-
-      adc_x <- rep(0, 11)
-      adc_pars <- optimal_pars[name %in% paste0("adc_", letters[1:3]) & zone == z]$value
-      adc_x_crawl <- 1 + adc_step_crawl
-      adc_y_crawl <- 1 + adc_step_crawl
-      for (j in length(adc_y):1) {
-        while (as.integer(adc_y_crawl * adc_sf) > as.integer(adc_y[j] * adc_sf) &
-          as.integer(adc_x_crawl * adc_sf) > as.integer(.05 * adc_sf)) {
-          adc_x_crawl <- adc_x_crawl - adc_step_crawl
-          adc_y_crawl <- adc_pars[1] * adc_x_crawl^adc_pars[2] + (1 - adc_pars[1]) * adc_x_crawl^adc_pars[3]
-        }
-        adc_x[j] <- adc_x_crawl
-      }
-      adc <- data.frame(`We_Ai` = adc_y, As = adc_x)
-      fwrite(adc, file.path(output_path, sprintf("adc_%s.csv", z)))
-    }
-
-    ################
-    # UH table csv
-    #################
-    for (z in zones) {
-      # convert sqkm to sqmi
-      area_sqmi <- optimal_pars[zone == z & name == "zone_area"]$value * 0.386102
-      shape <- optimal_pars[zone == z & name == "unit_shape"]$value
-      toc_gis <- optimal_pars[zone == z & name == "unit_toc"]$value
-      toc_adj <- optimal_pars[zone == z & name == "unit_toc_adj"]$value
-
-      toc <- toc_gis * toc_adj
-      scale <- uh2p_get_scale(shape, toc, 1)
-
-      # generate the UH at 1 hour timestep, it was calibrated at 6 hour
-      uh1hr <- uh2p_cfs_in(shape, scale, 1, area_sqmi)
-      uh6hr <- uh2p_cfs_in(shape, scale, 6, area_sqmi)
-      fwrite(data.frame(y = uh1hr), file.path(output_path, sprintf("uh_1hr_%s.csv", z)))
-      fwrite(data.frame(y = uh6hr), file.path(output_path, sprintf("uh_6hr_%s.csv", z)))
-    }
+#    ################
+#    # UH table csv
+#    #################
+#    for (z in zones) {
+#      # convert sqkm to sqmi
+#      area_sqmi <- optimal_pars[zone == z & name == "zone_area"]$value * 0.386102
+#      shape <- optimal_pars[zone == z & name == "unit_shape"]$value
+#      toc_gis <- optimal_pars[zone == z & name == "unit_toc"]$value
+#      toc_adj <- optimal_pars[zone == z & name == "unit_toc_adj"]$value
+#
+#      toc <- toc_gis * toc_adj
+#      scale <- uh2p_get_scale(shape, toc, 1)
+#
+#      # generate the UH at 1 hour timestep, it was calibrated at 6 hour
+#      uh1hr <- uh2p_cfs_in(shape, scale, 1, area_sqmi)
+#      uh6hr <- uh2p_cfs_in(shape, scale, 6, area_sqmi)
+#      fwrite(data.frame(y = uh1hr), file.path(output_path, sprintf("uh_1hr_%s.csv", z)))
+#      fwrite(data.frame(y = uh6hr), file.path(output_path, sprintf("uh_6hr_%s.csv", z)))
+#    }
 
     ####################
     # Cold states csv
     #####################
-    cold_state_vars <- c("swe", "uztwc", "uzfwc", "lztwc", "lzfsc", "lzfpc", "adimc")
+    #cold_state_vars <- c("swe", "uztwc", "uzfwc", "lztwc", "lzfsc", "lzfpc", "adimc")
+    cold_state_vars <- c("uztwc", "uzfwc", "lztwc", "lzfsc", "lzfpc", "adimc")
     for (z in zones) {
       # zone_suffix = paste0('_',as.character(which(zones==z)))
       zone_suffix <- paste0("_", z)
       cold_states_zonei <- paste0(cold_state_vars, zone_suffix)
-      cold_states <- optimal_states_6hr[365 * 4 + 1, cold_states_zonei, with = F] |>
+      cold_states <- optimal_states_6hr[365 * (24/dt_hours) + 1, cold_states_zonei, with = F] |>
         melt.data.table(measure.vars = cold_states_zonei)
       cold_states[, variable := gsub(zone_suffix, "", variable)]
       fwrite(cold_states, file.path(output_path, sprintf("cold_states_%s.csv", z)))
@@ -556,79 +583,79 @@ for (basin in basins) {
     # Forcing factors csv
     ###########################
 
-    if (n_zones > 0) {
-      if (full_sim_for_partial_calb) {
-        factors <- fa_adj_nwrfc(dt_hours, forcing_raw_subset, optimal_pars, climo = forcing_subset_climo)
-      } else {
-        factors <- fa_adj_nwrfc(dt_hours, forcing_raw, optimal_pars)
-      }
-
-      factors <- factors |>
-        as.data.frame() |>
-        rename(map_fac = map_adj, mat_fac = mat_adj, ptps_fac = ptps_adj, pet_fac = pet_adj) |>
-        mutate(month = 1:12) |>
-        select(month, map_fac, mat_fac, pet_fac, ptps_fac)
-
-      write_csv(round(factors, 4), file.path(output_path, "fa_factors.csv"))
-    }
+#    if (n_zones > 0) {
+#      if (full_sim_for_partial_calb) {
+#        factors <- fa_adj_nwrfc(dt_hours, forcing_raw_subset, optimal_pars, climo = forcing_subset_climo)
+#      } else {
+#        factors <- fa_adj_nwrfc(dt_hours, forcing_raw, optimal_pars)
+#      }
+#
+#      factors <- factors |>
+#        as.data.frame() |>
+#        rename(map_fac = map_adj, mat_fac = mat_adj, ptps_fac = ptps_adj, pet_fac = pet_adj) |>
+#        mutate(month = 1:12) |>
+#        select(month, map_fac, mat_fac, pet_fac, ptps_fac)
+#
+#      write_csv(round(factors, 4), file.path(output_path, "fa_factors.csv"))
+#    }
 
     #####################
     # lag-k table csv
     #####################
-    if (n_upstream > 0) {
-      # output lag and k tables
-      lagtbl <- ktbl <- lagktbl <- list()
-      for (u in 1:n_upstream) {
-        # upflow[[u]] = fread(upflow_files[u])
-        ndq <- 0
-        lagvec <- kvec <- qvec <- numeric(11)
-
-        lagtbl_a <- optimal_pars[zone == upstream_lids[u] & name == "lagtbl_a"]$value
-        lagtbl_b <- optimal_pars[zone == upstream_lids[u] & name == "lagtbl_b"]$value
-        lagtbl_c <- optimal_pars[zone == upstream_lids[u] & name == "lagtbl_c"]$value
-        lagtbl_d <- optimal_pars[zone == upstream_lids[u] & name == "lagtbl_d"]$value
-        ktbl_a <- optimal_pars[zone == upstream_lids[u] & name == "ktbl_a"]$value
-        ktbl_b <- optimal_pars[zone == upstream_lids[u] & name == "ktbl_b"]$value
-        ktbl_c <- optimal_pars[zone == upstream_lids[u] & name == "ktbl_c"]$value
-        ktbl_d <- optimal_pars[zone == upstream_lids[u] & name == "ktbl_d"]$value
-        lagk_qmax <- optimal_pars[zone == upstream_lids[u] & name == "lagk_qmax"]$value
-        lagk_lagmax <- optimal_pars[zone == upstream_lids[u] & name == "lagk_lagmax"]$value
-        lagk_kmax <- optimal_pars[zone == upstream_lids[u] & name == "lagk_kmax"]$value
-        lagk_qmin <- optimal_pars[zone == upstream_lids[u] & name == "lagk_qmin"]$value
-        lagk_lagmin <- optimal_pars[zone == upstream_lids[u] & name == "lagk_lagmin"]$value
-        lagk_kmin <- optimal_pars[zone == upstream_lids[u] & name == "lagk_kmin"]$value
-
-        for (i in 1:11) {
-          qvec[i] <- ndq * (lagk_qmax - lagk_qmin) + lagk_qmin
-
-          lag_entry <- lagtbl_a * (ndq - lagtbl_d)**2 + lagtbl_b * ndq + lagtbl_c
-          k_entry <- ktbl_a * (ndq - ktbl_d)**2 + ktbl_b * ndq + ktbl_c
-
-          if (lag_entry > 0 && lag_entry < 1) {
-            lagvec[i] <- lag_entry * (lagk_lagmax - lagk_lagmin) + lagk_lagmin
-          } else if (lag_entry >= 1) {
-            lagvec[i] <- lagk_lagmax
-          } else {
-            lagvec[i] <- lagk_lagmin
-          }
-
-          if (k_entry > 0 && k_entry < 1) {
-            kvec[i] <- k_entry * (lagk_kmax - lagk_kmin) + lagk_kmin
-          } else if (k_entry >= 1) {
-            kvec[i] <- lagk_kmax
-          } else {
-            kvec[i] <- lagk_kmin
-          }
-
-          ndq <- ndq + .1
-        }
-        lagtbl[[upstream_lids[u]]] <- data.table(Q = qvec, lag = lagvec)
-        ktbl[[upstream_lids[u]]] <- data.table(Q = qvec, k = kvec)
-        lagktbl[[u]] <- data.table(qvec, lagvec, kvec)
-        names(lagktbl[[u]]) <- paste0(upstream_lids[u], "_", c("Q", "lag", "k"))
-      }
-      write_csv(do.call(cbind, lagktbl), file.path(output_path, "lagk_tables.csv"))
-    }
+#    if (n_upstream > 0) {
+#      # output lag and k tables
+#      lagtbl <- ktbl <- lagktbl <- list()
+#      for (u in 1:n_upstream) {
+#        # upflow[[u]] = fread(upflow_files[u])
+#        ndq <- 0
+#        lagvec <- kvec <- qvec <- numeric(11)
+#
+#        lagtbl_a <- optimal_pars[zone == upstream_lids[u] & name == "lagtbl_a"]$value
+#        lagtbl_b <- optimal_pars[zone == upstream_lids[u] & name == "lagtbl_b"]$value
+#        lagtbl_c <- optimal_pars[zone == upstream_lids[u] & name == "lagtbl_c"]$value
+#        lagtbl_d <- optimal_pars[zone == upstream_lids[u] & name == "lagtbl_d"]$value
+#        ktbl_a <- optimal_pars[zone == upstream_lids[u] & name == "ktbl_a"]$value
+#        ktbl_b <- optimal_pars[zone == upstream_lids[u] & name == "ktbl_b"]$value
+#        ktbl_c <- optimal_pars[zone == upstream_lids[u] & name == "ktbl_c"]$value
+#        ktbl_d <- optimal_pars[zone == upstream_lids[u] & name == "ktbl_d"]$value
+#        lagk_qmax <- optimal_pars[zone == upstream_lids[u] & name == "lagk_qmax"]$value
+#        lagk_lagmax <- optimal_pars[zone == upstream_lids[u] & name == "lagk_lagmax"]$value
+#        lagk_kmax <- optimal_pars[zone == upstream_lids[u] & name == "lagk_kmax"]$value
+#        lagk_qmin <- optimal_pars[zone == upstream_lids[u] & name == "lagk_qmin"]$value
+#        lagk_lagmin <- optimal_pars[zone == upstream_lids[u] & name == "lagk_lagmin"]$value
+#        lagk_kmin <- optimal_pars[zone == upstream_lids[u] & name == "lagk_kmin"]$value
+#
+#        for (i in 1:11) {
+#          qvec[i] <- ndq * (lagk_qmax - lagk_qmin) + lagk_qmin
+#
+#          lag_entry <- lagtbl_a * (ndq - lagtbl_d)**2 + lagtbl_b * ndq + lagtbl_c
+#          k_entry <- ktbl_a * (ndq - ktbl_d)**2 + ktbl_b * ndq + ktbl_c
+#
+#          if (lag_entry > 0 && lag_entry < 1) {
+#            lagvec[i] <- lag_entry * (lagk_lagmax - lagk_lagmin) + lagk_lagmin
+#          } else if (lag_entry >= 1) {
+#            lagvec[i] <- lagk_lagmax
+#          } else {
+#            lagvec[i] <- lagk_lagmin
+#          }
+#
+#          if (k_entry > 0 && k_entry < 1) {
+#            kvec[i] <- k_entry * (lagk_kmax - lagk_kmin) + lagk_kmin
+#          } else if (k_entry >= 1) {
+#            kvec[i] <- lagk_kmax
+#          } else {
+#            kvec[i] <- lagk_kmin
+#          }
+#
+#          ndq <- ndq + .1
+#        }
+#        lagtbl[[upstream_lids[u]]] <- data.table(Q = qvec, lag = lagvec)
+#        ktbl[[upstream_lids[u]]] <- data.table(Q = qvec, k = kvec)
+#        lagktbl[[u]] <- data.table(qvec, lagvec, kvec)
+#        names(lagktbl[[u]]) <- paste0(upstream_lids[u], "_", c("Q", "lag", "k"))
+#      }
+#      write_csv(do.call(cbind, lagktbl), file.path(output_path, "lagk_tables.csv"))
+#    }
 
     ####################
     # Performance Plots
