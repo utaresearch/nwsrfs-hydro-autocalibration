@@ -3,7 +3,6 @@
 # Written by Cameron Bracken and Geoffrey Walters (2025)
 # Please see the LICENSE file for license information
 
-.libPaths(c('/data/zcui/bin/R/library', .libPaths()))
 library(xml2)
 library(XML)
 

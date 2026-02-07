@@ -3,11 +3,6 @@
 # Written by Cameron Bracken and Geoffrey Walters (2025)
 # Please see the LICENSE file for license information
 
-
-#.libPaths(c('/opt/RLibs/nwrfc', .libPaths()))
-.libPaths(c('/data/zcui/bin/R/library', .libPaths()))
-
-
 # install.packages(c('xfun','import','devtools'))
 xfun::pkg_load2(
   "magrittr", "dplyr", "data.table", "dtplyr", "hydroGOF",

@@ -39,17 +39,46 @@ R CMD INSTALL rfchydromodels
 
 2. The code has been tested only with a 6-hour timestep. Use with other timesteps may require additional configuration and validation.
 
+## Example Installation on a Rocky 8 System
+
+1. Install libcurl-devel. If libcurl-devel is not installed at a default location, set the environmental variable. For example, if libcurl-devl is installed at /opt/libcurl
+```bash
+export R_LIBS="/opt/libcurl/lib"
+export LD_LIBRARY_PATH=/opt/libcurl/lib:$LD_LIBRARY_PATH
+```
+2. Install system libraries.
+```bash
+sudo dnf install freetype-devel libpng-devel libtiff-devel libjpeg-devel libwebp-devel
+sudo dnf install udunits2-devel
+sudo dnf install postgresql-devel
+```
+From R:
+
+```R
+install.packages(c("curl"))
+install.packages(c('pkgdown'))
+install.packages(c('xfun','import','devtools'))
+install.packages("RPostgres")
+devtools::install_github('utaresearch/nwsrfs-hydro-models',subdir='rfchydromodels')
+install.packages(c("gridExtra"))
+```
+If install form a local repository,
+```bash
+export R_LIBS="/opt/libcurl_8_3_0/lib"
+export LD_LIBRARY_PATH=/opt/libcurl_8_3_0/lib:$LD_LIBRARY_PATH
+git clone https://github.com/utaresearch/nwsrfs-hydro-models.git
+cd nwsrfs-hydro-models
+R CMD INSTALL rfchydromodels
+```
+
 ## Example Calibrations
-There are five basin directories included in this repo that serve as examples which utilize all the features of the auto calibration tool.
+There are two basin directories included in this repo that serve as examples which utilize all the features of the auto calibration tool.
 
 **Example Basins**
 | NWSLI ID  |  Name | USGS # | Zones | Description |
 |--------|-------|-------|-------|-------------|
-| FSSO3  | Nehalem at Foss, OR|14301000 |1     | Rain-dominated (CAMELS) |
-| SAKW1  | Sauk nr Sauk, WA|12189500 |2     |  Rain/Snow-dominated, LAGK example (CAMELS)|
-| SFLN2  | Salmon Falls nr San Jacinto, NV|13105000 |2     | Arrid basin, CONS_USE and CHANLOSS example |
-| WCHW1  | Sauk ab White Chuck, WA|12186000|2     | Rain/Snow-dominated, routing reach to SAKW1 (CAMELS) |
-| WGCM8  | MF Flathead nr W Glacier, MT|12358500 |2     | Snow-dominated (CAMELS) |
+| GETT2  | SFRK SNGBRL GEORGTWN, TX  |   |1     |  |
+| DNGT2  | LAMPASAS RVR-DING DONG,TX |   |1     |  |
 
 *supporting files are stored in the `runs/` directory
 
@@ -57,7 +86,8 @@ There are five basin directories included in this repo that serve as examples wh
  We recommend that you complete at least 4 cross validation runs in addition to the full period of record run to evaluate the calibration for any potential issues.
  
     # period of record run
-    ./run-controller.R --dir runs/2zone --objfun lognse_kge --basin WGCM8
+    ./run-controller.R --dir runs/1zone --objfun kge_NULL --basin GETT2 -n 1 
+    ./run-controller.R --dir runs/1zone --objfun kge_NULL --basin DNGT2 -n 1 --lite --overwrite
 
     # cross validation
     ./run-controller.R --dir runs/2zone --objfun lognse_kge --basin WGCM8 --cvfold 1
@@ -66,7 +96,7 @@ There are five basin directories included in this repo that serve as examples wh
     ./run-controller.R --dir runs/2zone --objfun lognse_kge --basin WGCM8 --cvfold 4
 
     # postprocessing
-    ./postprocess.R --dir runs/2zone --basins WGCM8
+    ./postprocess.R --dir runs/1zone --basins DNGT2
 
     # cross-validation
     ./cv_plots.R --dir runs/2zone --basins WGCM8
