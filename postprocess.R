@@ -504,16 +504,9 @@ for (basin in basins) {
       }
     }
 
-    cat("call optimal_sim_daily")
     write_csv(optimal_sim_daily, file.path(output_path, "optimal_daily.csv"))
-    cat("call optimal_sim_6hr_inst\n")
-    print( optimal_sim_6hr_inst )
-    print( output_path )
-    print( dt_hours )
     write_csv(optimal_sim_6hr_inst, file.path(output_path, paste0("optimal_", dt_hours, "hr_inst.csv")))
     if (n_zones > 0) {
-      cat( "n_zones = ", n_zones )	    
-      print( optimal_states_6hr )
       write_csv(optimal_states_6hr, file.path(output_path, paste0("optimal_states_", dt_hours, "hr.csv")))
     }
     if (n_upstream != 0) {
