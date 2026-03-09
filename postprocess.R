@@ -147,7 +147,8 @@ for (basin in basins) {
     optimal_pars <- fread(file.path(output_path, "pars_optimal.csv"))
     optimal_pars <- optimal_pars[order(zone, name)]
 
-    dt_hours <- optimal_pars[ name == "interval" & type == "uh", value ]
+    #only use the first value
+    dt_hours <- unlist( optimal_pars[ name == "interval" & type == "uh", value ])[1]
     # Get zone configuration
     zones <- optimal_pars$zone |>
       unique() |>
@@ -191,11 +192,11 @@ for (basin in basins) {
       }
       #forcing_subset_climo <- fa_adj_nwrfc(dt_hours, forcing_raw_subset, optimal_pars, return_climo = TRUE) |>
       forcing_subset_climo <- list()
-      forcing_subset_climo[[1]] <- apply_pe_adj(dt_hours, forcing_raw_subset[[1]], optimal_pars,  dry_run = FALSE) |>
+      forcing_subset_climo <- apply_pe_adj(dt_hours, forcing_raw_subset, optimal_pars,  dry_run = FALSE) |>
         data.matrix()
       if (n_zones > 0) {
         #forcing <- fa_nwrfc(dt_hours, forcing_raw, optimal_pars, climo = forcing_subset_climo)
-        forcing[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], optimal_pars,  dry_run = FALSE)
+        forcing <- apply_pe_adj(dt_hours, forcing_raw, optimal_pars,  dry_run = FALSE)
       } else {
         forcing <- forcing_raw
       }
@@ -203,7 +204,7 @@ for (basin in basins) {
       forcing_raw_subset <- forcing_subset_climo <- NULL
       if (n_zones > 0) {
         #forcing <- fa_nwrfc(dt_hours, forcing_raw, optimal_pars)
-        forcing[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], optimal_pars,  dry_run = FALSE)
+        forcing <- apply_pe_adj(dt_hours, forcing_raw, optimal_pars,  dry_run = FALSE)
       } else {
         forcing <- forcing_raw
       }
@@ -503,9 +504,16 @@ for (basin in basins) {
       }
     }
 
+    cat("call optimal_sim_daily")
     write_csv(optimal_sim_daily, file.path(output_path, "optimal_daily.csv"))
+    cat("call optimal_sim_6hr_inst\n")
+    print( optimal_sim_6hr_inst )
+    print( output_path )
+    print( dt_hours )
     write_csv(optimal_sim_6hr_inst, file.path(output_path, paste0("optimal_", dt_hours, "hr_inst.csv")))
     if (n_zones > 0) {
+      cat( "n_zones = ", n_zones )	    
+      print( optimal_states_6hr )
       write_csv(optimal_states_6hr, file.path(output_path, paste0("optimal_states_", dt_hours, "hr.csv")))
     }
     if (n_upstream != 0) {

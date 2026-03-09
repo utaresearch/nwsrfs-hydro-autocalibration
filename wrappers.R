@@ -257,32 +257,19 @@ uta_model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs
 ##   print(etd_m)
 #    peadj <- pars[pars$name == "peadj" & pars$type == 'sac', value ]
     #forcing_adj <- fa_nwrfc(dt_hours, forcing_raw, pars)
-    forcing_adj[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], pars,  dry_run = FALSE)
+    forcing_adj <- apply_pe_adj(dt_hours, forcing_raw, pars,  dry_run = FALSE)
   } else {
     forcing_adj <- forcing_raw
   }
-  #print( forcing_adj )
   # Run the model
 
-#  uhg <- list( constant_base_flow = default_pars[default_pars$name == "baseflow", "value" ],
-#                     uhg_interval = default_pars[default_pars$name == "interval", "value" ],
-#                     uhg_duration = default_pars[default_pars$name == "duration", "value" ],
-#                     drainage_area = default_pars[default_pars$name == "zone_area", "value" ],
-#		     oridnates = default_pars[substr(default_pars$name, 1,8) == "unit_ord", "value"]
-#		    )
-#
-#  uhg[[4]] <- uhg[[4]]* 2.58998811 # 1 square mile = 2.59 square kilometers
-#  setnames( uhg[[5]], "value", "ordinates" )
-#  uhg[[5]][, ordinates := ordinates / 35.3147 ]  # 35.3147 FT3 = 1 M3
-#  uhg[[5]][, ordinates := ordinates / 25.4 ]    # 1 IN = 25.4 MM
-#
   if (is.null(upflow)) {
     # !!includes chanloss but not consuse!!
     #sim <- sac_only_uh(dt_hours, forcing_adj, pars, uhg)
     sim <- sac_only_uh(dt_hours, forcing_adj, pars)
   } else if (n_zones == 0) {
     sim <- lagk(dt_hours, upflow, pars)
-    sim <- chanloss(sim, forcing_adj, dt_hours, pars)
+    sim <- chanloss(sim, forcing_adj[[1]], dt_hours, pars)
   } else {
     # !!includes chanloss but not consuse!!
     #sim <- sac_snow_uh_lagk(dt_hours, forcing_adj, upflow, pars)

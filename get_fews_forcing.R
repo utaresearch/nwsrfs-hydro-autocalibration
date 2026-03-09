@@ -14,18 +14,15 @@ get_fews_forcing <- function( pixmlfile ){
      
      timezone = as.numeric( xml_text( timezonenode ) )
   }
-  print( timezone )
   series <- xml_find_all( pixml, "/d1:TimeSeries/d1:series", ns )
 
   all_series_dfs <- list()
   ids <- list()
   for ( s in series){
-    #print( s )
     id <- xml_find_first( s, "./d1:header/d1:locationId", ns )
     id_text <- xml_text(id)          # Get text content
     par_id <- xml_find_first( s, "./d1:header/d1:parameterId", ns )
     par_id_text <- xml_text(par_id)          # Get text content
-    #  cat(sprintf("Item ID: %s, Value: %s\n", id, value))
     events <- xml_find_all( s, "./d1:event", ns )
 
     timestamp <- c()

@@ -278,7 +278,7 @@ upflow <- NULL
 lagk_pars <- NULL
 if (n_upstream > 0) {
   upstream_lids <- gsub("upflow_", "", gsub("\\.csv.*", "", basename(upflow_files)))
-  print(upstream_lids)
+#  print(upstream_lids)
   upflow <- list()
   lagk_pars <- list()
   for (u in 1:n_upstream) {
@@ -374,7 +374,6 @@ control_sim_daily <- uta_model_wrapper(defaults, names(defaults), dt_hours, defa
 write.csv(control_sim_daily, 
 	  file = file.path(output_path, "control_sim_flow.csv"), 
 	  row.names = FALSE)
-
 control_gof <- with(control_sim_daily, gof(sim_flow_cfs, flow_cfs))
 
 file.path(output_path, "control_stats.txt") |> sink()
@@ -455,7 +454,7 @@ if (n_zones > 0) {
 #  peadj <- optimal_pars[name=="peadj" & type=="sac", value]
   forcing <- list()
 #  forcing[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], etd_m, peadj,  dry_run = FALSE)
-  forcing[[1]] <- apply_pe_adj(dt_hours, forcing_raw[[1]], optimal_pars,  dry_run = FALSE)
+  forcing <- apply_pe_adj(dt_hours, forcing_raw, optimal_pars,  dry_run = FALSE)
   #forcing <- fa_nwrfc(dt_hours, forcing_raw, optimal_pars)
 } else {
   forcing <- forcing_raw

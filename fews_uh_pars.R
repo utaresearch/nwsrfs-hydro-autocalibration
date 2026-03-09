@@ -1,8 +1,5 @@
 #!/usr/bin/env Rscript
 
-#.libPaths(c('/opt/RLibs/nwrfc', .libPaths()))
-.libPaths(c('/data/zcui/bin/R/library', .libPaths()))
-
 library(xml2)
 library(XML)
 library(data.table)
