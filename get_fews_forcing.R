@@ -90,3 +90,22 @@ get_fews_forcing <- function( pixmlfile ){
   return( merged_dt )
 }
 
+get_fews_forcing_timestep <- function( pixmlfile ){
+  pixml <- read_xml(pixmlfile)
+
+  ns <- xml_ns(pixml)  # get namespaces
+
+  series <- xml_find_all( pixml, "/d1:TimeSeries/d1:series", ns )
+  timestep <- xml_find_first( series[1], "./d1:header/d1:timeStep", ns )
+  unit<- xml_attr(timestep, "unit")
+  multiplier <- as.integer(xml_attr(timestep, "multiplier") )
+  if ( tolower( unit ) == "second" ) {
+     return( as.integer ( multiplier / 3600 ) )
+  } else if ( tolower( unit ) == "minute" ){
+     return( as.integer( multiplier / 60 ) ) 
+  } else if ( tolower( unit ) == "hour" ){
+     return( multiplier )
+  } else {
+     stop("Wrong timeStep unit in forcing file: ", pixmlfile )
+  }
+}

@@ -3,6 +3,7 @@
 # Written by Cameron Bracken and Geoffrey Walters (2025)
 # Please see the LICENSE file for license information
 
+
 # install.packages(c('xfun','import','devtools'))
 xfun::pkg_load2(
   "magrittr", "dplyr", "data.table", "dtplyr", "hydroGOF",
@@ -53,6 +54,7 @@ source("wrappers.R")
 source("obj_fun.R")
 source("get_fews_forcing.R")
 source("fews_lagk_pars.R")
+source("check_uh_lagk_pars.R")
 
 parser <- arg_parser("Auto-calibration run controller", hide.opts = TRUE)
 
@@ -215,8 +217,15 @@ cu <- ifelse(length(cu_zones) > 0, TRUE, FALSE)
 
 #get the simulation time steps
 #Assumes the unit hydrograph has the same interval as the input forcing-.
-dt_hours <- default_pars[ name == "interval" & type == "uh", value ]
+#dt_hours <- default_pars[ name == "interval" & type == "uh", value ]
 
+#check if calibrate UH
+calib_uh <- calibrate_uh( default_pars )
+if (calib_uh) {
+   cat(blue$bold("Using parameterized unit hydrograph! \n") )
+} else{
+   cat(blue$bold("Using unit hydrograph oridinates - no unit hydrograph calibration!\n") )
+}
 
 # Get limits file
 limits <- fread(file.path(basin_dir, paste0("pars_limits.csv")))
@@ -227,9 +236,11 @@ names(upper) <- limits$name
 
 # Get forcings
 forcing_raw <- list()
+dt_hours = NULL
 for (zone in zones) {
 #  forcing_raw[[zone]] <- fread(file.path(basin_dir, paste0("forcing_por_", zone, ".csv")))
   forcing_raw[[zone]] <- get_fews_forcing(file.path(basin_dir, paste0("forcing_por_", zone, ".xml")))
+  dt_hours =  get_fews_forcing_timestep(file.path(basin_dir, paste0("forcing_por_", zone, ".xml")))
 }
 
 ### Get Streamflow data
@@ -276,9 +287,16 @@ upflow_files <- list.files(basin_dir, "upflow_*", full.names = TRUE) |> sort()
 n_upstream <- length(upflow_files)
 upflow <- NULL
 lagk_pars <- NULL
+calib_lagk <- NULL
 if (n_upstream > 0) {
   upstream_lids <- gsub("upflow_", "", gsub("\\.csv.*", "", basename(upflow_files)))
 #  print(upstream_lids)
+  calib_lagk <- calibrate_lagk( default_pars )
+  if (calib_lagk){
+      cat(blue$bold("Using parameterized LagK! \n") )
+  } else{
+      cat(blue$bold("Using LagK tables - no LagK calibration!\n") )
+  }
   upflow <- list()
   lagk_pars <- list()
   for (u in 1:n_upstream) {
@@ -292,9 +310,14 @@ if (n_upstream > 0) {
       ) |>
       mutate(flow_cfs = vctrs::vec_fill_missing(flow_cfs, max_fill = 4)) |>
       as_tibble()
-      lagk_pars[[upstream_lids[u]]] <- get_lagk_params(file.path( basin_dir, paste0("LAGK_",basin,"_",upstream_lids[u], "_UpdateStates.xml")))
+      if ( ! calib_lagk ){
+       lagk_pars[[upstream_lids[u]]] <- get_lagk_params(file.path( basin_dir, paste0("LAGK_",basin,"_",upstream_lids[u], "_UpdateStates.xml")))
+      }
   }
-  default_pars <- add_lagk_pars_to_default_pars( lagk_pars, default_pars)
+
+  if ( ! calib_lagk ){
+    default_pars <- add_lagk_pars_to_default_pars( lagk_pars, default_pars)
+  }
 }
 
 # if we are doing cross validation, set the observations during the cv period to NA
@@ -303,7 +326,8 @@ if (cv) {
   fold_tsadj_inst <- read_csv(file.path(basin_dir, paste0("forcing_validation_cv_", fold, "_", zone, ".csv")),
     col_types = cols()
   ) |>
-    select(-c("map_mm", "mat_degc", "ptps")) |>
+    #select(-c("map_mm", "mat_degc", "ptps")) |>
+    select(-c("map_mm", "mpe_mm")) |>
     mutate(set_na = TRUE)
 
   if (!is.null(obs_inst)) {
@@ -363,23 +387,27 @@ tryCatch(
 ########################################################################
 #################### Run the control case
 #########################################################################
-defaults <- default_pars$value
-names(defaults) <- paste0(default_pars$name, '_', default_pars$zone )
-defaults <- replace_missing_by_name(defaults, lower)
-
-control_sim_daily <- uta_model_wrapper(defaults, names(defaults), dt_hours, default_pars, obs_daily, obs_inst,
-  forcing_raw, upflow, obj_fun, n_zones, cu_zones,
-  return_flow = TRUE
-)
-write.csv(control_sim_daily, 
-	  file = file.path(output_path, "control_sim_flow.csv"), 
-	  row.names = FALSE)
-control_gof <- with(control_sim_daily, gof(sim_flow_cfs, flow_cfs))
-
-file.path(output_path, "control_stats.txt") |> sink()
-cat("--CONTROL STATISTICS-- ", "\n")
-control_gof |> print()
-sink()
+#defaults <- default_pars$value
+#names(defaults) <- paste0(default_pars$name, '_', default_pars$zone )
+#defaults <- replace_missing_by_name(defaults, lower)
+#
+#print(defaults)
+#print(names(defaults))
+#quit()
+#control_sim_daily <- uta_model_wrapper(defaults, names(defaults), dt_hours, default_pars, obs_daily, obs_inst,
+#  forcing_raw, upflow, obj_fun, n_zones, cu_zones,
+#  calib_uh, calib_lagk,
+#  return_flow = TRUE
+#)
+#write.csv(control_sim_daily, 
+#	  file = file.path(output_path, "control_sim_flow.csv"), 
+#	  row.names = FALSE)
+#control_gof <- with(control_sim_daily, gof(sim_flow_cfs, flow_cfs))
+#
+#file.path(output_path, "control_stats.txt") |> sink()
+#cat("--CONTROL STATISTICS-- ", "\n")
+#control_gof |> print()
+#sink()
 #browser()
 
 ########################################################################
@@ -391,7 +419,7 @@ ptm <- proc.time()
 
 out <- run_controller_edds(
   lower, upper, basin, dt_hours, default_pars, obs_daily, obs_inst,
-  forcing_raw, upflow, obj_fun, n_zones, cu_zones, n_cores, lite
+  forcing_raw, upflow, obj_fun, n_zones, cu_zones, n_cores, lite, calib_uh, calib_lagk
 )
 
 p_optimal <- out["p_best"][[1]]
@@ -471,6 +499,7 @@ optimal_pars <- optimal_pars[order(zone, name)]
 #optimal_sim_daily <- model_wrapper(p_optimal, names(lower), dt_hours, optimal_pars, obs_daily, obs_inst,
 optimal_sim_daily <- uta_model_wrapper(p_optimal, names(lower), dt_hours, optimal_pars, obs_daily, obs_inst,
   forcing_raw, upflow, obj_fun, n_zones, cu_zones,
+  calib_uh, calib_lagk,
   return_flow = TRUE
 )
 write.csv(optimal_sim_daily, 

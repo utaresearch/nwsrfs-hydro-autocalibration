@@ -227,6 +227,7 @@ model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs_ins
 
 uta_model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs_inst,
                           forcing_raw, upflow, obj_fun, n_zones, cu_zones,
+			  is_parameterized_uh, is_parameterized_lagk,
                           return_flow = FALSE) {
   # browser()
 
@@ -252,9 +253,6 @@ uta_model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs
   # adjusted forcings
   forcing_adj <- list()
   if (n_zones > 0) {
-#    etd_m <- pars[substr(pars$name, 1, 3) == "etd", list(name,value) ]
-#    setnames(etd_m, "value", "adj")
-##   print(etd_m)
 #    peadj <- pars[pars$name == "peadj" & pars$type == 'sac', value ]
     #forcing_adj <- fa_nwrfc(dt_hours, forcing_raw, pars)
     forcing_adj <- apply_pe_adj(dt_hours, forcing_raw, pars,  dry_run = FALSE)
@@ -266,14 +264,15 @@ uta_model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs
   if (is.null(upflow)) {
     # !!includes chanloss but not consuse!!
     #sim <- sac_only_uh(dt_hours, forcing_adj, pars, uhg)
-    sim <- sac_only_uh(dt_hours, forcing_adj, pars)
+    sim <- sac_only_uh(dt_hours, forcing_adj, pars, is_parameterized_uh)
   } else if (n_zones == 0) {
     sim <- lagk(dt_hours, upflow, pars)
     sim <- chanloss(sim, forcing_adj[[1]], dt_hours, pars)
   } else {
     # !!includes chanloss but not consuse!!
     #sim <- sac_snow_uh_lagk(dt_hours, forcing_adj, upflow, pars)
-    sim <- sac_only_uh_lagk(dt_hours, forcing_adj, upflow, pars)
+    sim <- sac_only_uh_lagk(dt_hours, forcing_adj, upflow, pars, is_parameterized_uh, 
+			                             is_parameterized_lagk)
   }
 
   sim <- sim * 35.314684921034 #cms to cfs
@@ -358,7 +357,7 @@ uta_model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs
 run_controller_edds <- function(lower, upper, basin, dt_hours, default_pars,
                                 obs_daily, obs_inst, forcing, upflow = NULL,
                                 obj_fun = "rmse", n_zones, cu_zones = character(0),
-                                n_cores, lite = FALSE) {
+                                n_cores, lite = FALSE, calib_uh = FALSE, calib_lagk = FALSE) {
   # browser()
   # ptm = proc.time()
 
@@ -380,7 +379,9 @@ run_controller_edds <- function(lower, upper, basin, dt_hours, default_pars,
     upflow = upflow,
     obj_fun = obj_fun,
     n_zones = n_zones,
-    cu_zones = cu_zones
+    cu_zones = cu_zones,
+    is_parameterized_uh = calib_uh, 
+    is_parameterized_lagk = calib_lagk
   )
 
 
@@ -521,7 +522,10 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
       upflow = upflow,
       obj_fun = obj_fun,
       n_zones = n_zones,
-      cu_zones = cu_zones
+      cu_zones = cu_zones,
+      is_parameterized_uh = calib_uh,
+      is_parameterized_lagk = calib_lagk
+
     )
 
 
