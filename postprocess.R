@@ -3,60 +3,54 @@
 # Written by Cameron Bracken and Geoffrey Walters (2025)
 # Please see the LICENSE file for license information
 
-library(xml2)
-library(XML)
+box::use(
+  dplyr[filter, select, summarise, group_by, ungroup, mutate, arrange, rename,
+        bind_rows, inner_join, anti_join, semi_join, distinct, right_join,
+        lag, lead, pull, left_join, n],
+  data.table[as.data.table, data.table, fread, merge.data.table, copy,
+             melt.data.table, rbindlist, dcast.data.table, fwrite, setkey,
+             setnames, nafill, setDT],
+  dtplyr[lazy_dt],
+  hydroGOF[gof, NSE, pbias],
+  digest[digest],
+  lubridate[ymd_hms, yday, ymd_hm, year, `year<-`, years, hours],
+  readr[read_delim, write_csv, read_csv, cols],
+  tibble[tibble, as_tibble, rownames_to_column],
+  ggplot2[...],
+  ggthemes[colorblind_pal],
+  crayon[`%+%`, green, bold, bgGreen, blue, inverse, red, bgCyan],
+  gridExtra[grid.arrange],
+  grid[unit.pmax, grid.newpage, grid.draw],
+  rmarkdown[render],
+  tools[file_path_sans_ext],
+  rlang[set_names],
+  stringr[str_subset, str_detect, str_locate, str_replace, str_replace_all],
+  tidyr[pivot_wider, pivot_longer, fill],
+  argparser[arg_parser, add_argument, parse_args],
+  plotly[ggplotly],
+  vctrs[vec_fill_missing],
+  xml2[...],
+  nwsrfsr[sac_snow_uh, sac_snow, sac_snow_states, lagk, sac_snow_uh_lagk,
+          forcing_adjust_map_pet_ptps, forcing_adjust_mat, uh, pet_hs,
+          uh2p_get_scale, uh2p_cfs_in, consuse, fa_nwrfc, fa_adj_nwrfc,
+          chanloss, rsnwelev, apply_pe_adj, sac_only_uh, sac_only, 
+	  sac_only_states, sync_uh, sac_only_uh_lagk, lagk_tbl]
+)
 
-# install.packages(c('xfun','import','devtools'))
-xfun::pkg_load2(
-  "magrittr", "dplyr", "data.table", "dtplyr", "hydroGOF",
-  "digest", "lubridate", "readr", "tibble", "ggthemes",
-  "gtable", "crayon", "rmarkdown", "stringr", "tidyr", "argparser",
-  "plotly"
+# Local modules
+box::use(
+  ./wrappers[model_wrapper, update_params, update_cu_params,
+             inst_to_ave, run_controller_edds, uta_model_wrapper, simple_model_wrapper],
+  ./get_fews_forcing[get_fews_forcing, get_fews_forcing_timestep],
+  ./fews_lagk_pars[get_lagk_params],
+  ./check_uh_lagk_pars[match_rows_exclusive, calibrate_uh, calibrate_lagk]
 )
-xfun::pkg_attach2("ggplot2")
-import::from(magrittr, "%<>%", "%T>%", "%$%")
-import::from(
-  dplyr, filter, select, summarise, group_by, ungroup, mutate, arrange, rename, bind_rows,
-  inner_join, anti_join, semi_join, distinct, right_join, lag, lead, pull, left_join
-)
-select <- dplyr::select
-import::from(
-  data.table, as.data.table, data.table, fread, merge.data.table, copy,
-  melt.data.table, rbindlist, dcast.data.table, fwrite, setkey, setnames, nafill, setDT
-)
-import::from(dtplyr, lazy_dt)
-import::from(hydroGOF, gof, NSE, pbias)
-import::from(digest, digest)
-import::from(lubridate, ymd_hms, yday, ymd_hm, year, "year<-", years, hours)
-import::from(readr, read_delim, write_csv, read_csv, cols)
-import::from(tibble, tibble, as_tibble, rownames_to_column)
-import::from(ggthemes, colorblind_pal)
-import::from(crayon, "%+%", green, bold, bgGreen, blue, inverse, red, bgCyan)
-import::from(gridExtra, grid.arrange)
-import::from(grid, unit.pmax, grid.newpage, grid.draw)
-import::from(rmarkdown, render)
-import::from(tools, file_path_sans_ext)
-import::from(rlang, set_names)
-import::from(stringr, str_subset, str_detect, str_locate, str_replace, str_replace_all)
-import::from(tidyr, pivot_wider, pivot_longer, fill)
-import::from(argparser, arg_parser, add_argument, parse_args)
-import::from(plotly, ggplotly)
-import::from(dplyr, n)
-import::from(vctrs, vec_fill_missing)
+
 ##############################################################################
 # !!To ensure correct parameter/forcings/upstream flow get mapped correctly to
 # intended zone/process. The default or optimal parameter file, forcing list, and
 # upstream flow list MUST be alphabetized by zone or basin names prior to call wrapper.r
-# or rfchydromodels functions
-import::from(
-  rfchydromodels, sac_snow_uh, sac_snow, sac_snow_states, lagk, sac_snow_uh_lagk, lagk,
-  forcing_adjust_map_pet_ptps, forcing_adjust_mat, uh, pet_hs, uh2p_get_scale, uh2p_cfs_in,
-  consuse, fa_nwrfc, fa_adj_nwrfc, chanloss, rsnwelev, apply_pe_adj, sac_only_uh, sac_only, sac_only_states, sync_uh, sac_only_uh_lagk, lagk_tbl
-)
-source("wrappers.R")
-source("obj_fun.R")
-source("get_fews_forcing.R")
-source("check_uh_lagk_pars.R")
+# or nwsrfsr functions
 
 parser <- arg_parser("Auto-calibration postprocessor", hide.opts = TRUE)
 

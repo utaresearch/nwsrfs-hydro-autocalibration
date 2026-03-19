@@ -1,9 +1,9 @@
-#!/usr/bin/env Rscript
 
-library(xml2)
-library(XML)
-library(data.table)
-
+box::use(
+  data.table[as.data.table, data.table, merge.data.table, copy,
+             rbindlist, nafill],
+  xml2[...]
+)
 
 get_lagk_params <- function( parpixmlfile ){
 

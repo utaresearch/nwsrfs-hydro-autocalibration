@@ -1,6 +1,23 @@
 # Written by Cameron Bracken and Geoffrey Walters (2025)
 # Please see the LICENSE file for license information
 
+box::use(
+  stats[runif, rnorm, setNames],
+  dplyr[filter, select, summarise, group_by, ungroup, mutate,
+        lead, right_join, bind_rows],
+  data.table[as.data.table, data.table, merge.data.table, copy,
+             rbindlist, nafill],
+  tibble[as_tibble],
+  tidyr[fill],
+  parallel[makeCluster, clusterSetRNGStream, clusterCall, 
+             clusterEvalQ, clusterExport, stopCluster],
+  hydroGOF[NSE, pbias, rPearson, KGE],
+  nwsrfsr[sac_snow_uh, sac_snow_uh_lagk, lagk, chanloss,
+          consuse, fa_nwrfc, apply_pe_adj, sac_only_uh, sac_only_uh_lagk],
+  obj_funs = ./obj_fun
+)
+
+#' @export
 update_params <- function(p, p_names, default_pars) {
   # nl = nml::read_nml('namelist.HHWM8')
   # n_hrus = nl$INIT_CONTROL$n_hrus
@@ -67,6 +84,7 @@ update_params <- function(p, p_names, default_pars) {
   updated_pars2[order(zone, name)]
 }
 
+#' @export
 update_cu_params <- function(pars, zone1_name, cu_zones) {
   zone1_pars <- pars[zone == zone1_name]
 
@@ -89,6 +107,7 @@ update_cu_params <- function(pars, zone1_name, cu_zones) {
   pars[order(zone, name)]
 }
 
+#' @export
 inst_to_ave <- function(forcing, sim_flow_cfs, agg_to_daily = FALSE) {
   sim <- as.data.table(forcing[[1]][, c("year", "month", "day", "hour")])
 
@@ -108,6 +127,7 @@ inst_to_ave <- function(forcing, sim_flow_cfs, agg_to_daily = FALSE) {
   }
 }
 
+#' @export
 model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs_inst,
                           forcing_raw, upflow, obj_fun, n_zones, cu_zones,
                           return_flow = FALSE) {
@@ -220,11 +240,13 @@ model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs_ins
 
   # browser()
 
-  obj <- get(paste0(obj_fun, "_obj"))(results_daily, results_inst)
+  obj_fun_fn <- obj_funs[[paste0(obj_fun, "_obj")]]
+  obj <- obj_fun_fn(results_daily, results_inst)
 
   if (return_flow) results_daily else c(obj_fun = obj)
 }
 
+#' @export
 uta_model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs_inst,
                           forcing_raw, upflow, obj_fun, n_zones, cu_zones,
 			  is_parameterized_uh, is_parameterized_lagk,
@@ -349,11 +371,13 @@ uta_model_wrapper <- function(p, p_names, dt_hours, default_pars, obs_daily, obs
 
   # browser()
 
-  obj <- get(paste0(obj_fun, "_obj"))(results_daily, results_inst)
+  obj_fun_fn <- obj_funs[[paste0(obj_fun, "_obj")]]
+  obj <- obj_fun_fn(results_daily, results_inst)
 
   if (return_flow) results_daily else c(obj_fun = obj)
 }
 
+#' @export
 run_controller_edds <- function(lower, upper, basin, dt_hours, default_pars,
                                 obs_daily, obs_inst, forcing, upflow = NULL,
                                 obj_fun = "rmse", n_zones, cu_zones = character(0),
@@ -395,16 +419,49 @@ run_controller_edds <- function(lower, upper, basin, dt_hours, default_pars,
 
 
 # Evolving Dynamically Dimensioned Search (EDDS)
+#' @export
 ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
+  # Unpack ... args into local scope so clusterCall can reference them
+  list2env(list(...), environment())
+
   # Parallel Registration
-  my_cluster <- makeCluster(n_cores, type = "FORK") #' PSOCK'
+  # Use FORK on Linux/Mac for maximum speed, fallback to PSOCK for Windows compatibility
+  os_type <- if (.Platform$OS.type == "windows") "PSOCK" else "FORK"
+  my_cluster <- makeCluster(n_cores, type = os_type)
   # Seeding using L'Ecuyer-CMRG
   RNGkind("L'Ecuyer-CMRG")
   clusterSetRNGStream(cl = my_cluster, iseed = NULL)
   # Set a fresh random seed for the master process
   set.seed(sample.int(.Machine$integer.max, 1))
-  (stream <- .Random.seed)
+  (stream <- globalenv()$.Random.seed)
 
+  #Export box modules to the clusters
+  master_wd <- getwd()
+  clusterExport(my_cluster, "master_wd", envir = environment())
+  clusterEvalQ(my_cluster, {
+    setwd(master_wd)
+    box::use(
+      stats[runif, rnorm, setNames],
+      dplyr[filter, select, summarise, group_by, ungroup, mutate,
+            lead, right_join, bind_rows],
+      data.table[as.data.table, data.table, merge.data.table, copy,
+                 rbindlist, nafill],
+      tibble[as_tibble],
+      tidyr[fill],
+      hydroGOF[NSE, pbias, rPearson, KGE],
+      nwsrfsr[sac_snow_uh, sac_snow_uh_lagk, lagk, chanloss,
+              consuse, fa_nwrfc],
+      obj_funs = ./obj_fun
+    )
+  })
+  
+  #Export wrapper functions to the clusters
+  clusterExport(
+    cl = my_cluster,
+    varlist = c("update_params", "update_cu_params", "inst_to_ave", "model_wrapper"),
+    envir = environment()
+  )
+  
   # Step 1: Check inputs
   if (!is.function(fn)) {
     stop(paste0("'fn' must be a function"))
@@ -513,7 +570,7 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
       t_iter = t_iter,
       p_iter = p_iter,
       r = 0.2,
-      p_names = names(lower),
+      p_names = p_names,
       dt_hours = dt_hours,
       default_pars = default_pars,
       obs_daily = obs_daily,
@@ -523,9 +580,8 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
       obj_fun = obj_fun,
       n_zones = n_zones,
       cu_zones = cu_zones,
-      is_parameterized_uh = calib_uh,
-      is_parameterized_lagk = calib_lagk
-
+      is_parameterized_uh = is_parameterized_uh,
+      is_parameterized_lagk = is_parameterized_lagk
     )
 
 
@@ -544,7 +600,7 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
     # if (!exists("stream") || length(stream) < 2 || !is.numeric(stream)) {
     #   stop("Invalid RNG state detected in `stream` before calling nextRNGStream()")
     # }
-    nextRNGStream(stream)
+    #nextRNGStream(stream)
 
     # Add a message regarding iteration and best run if i is divisable by 100
     if (i %% 100 == 0) {
@@ -591,11 +647,12 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
 #' stochastic optimization of computationally expensive objective functions. The
 #' algorithm gradually shifts from global to local search.
 
+#' @export
 dds <- function(fn, p_bounds, f_best, p_best, f_trace, p_trace, c_iter,
                 t_iter = 10000, p_iter = 100, r = 0.2, ...) {
   i <- 1
   # Capture seed for verification
-  worker_seed <- .Random.seed
+  worker_seed <- globalenv()$.Random.seed
 
   # Iteration loop
   while (i < (p_iter + 1)) {
@@ -651,6 +708,7 @@ dds <- function(fn, p_bounds, f_best, p_best, f_trace, p_trace, c_iter,
   ))
 }
 
+#' @export
 simple_model_wrapper <- function(p, p_names, default_pars, dt_hours, forcing_raw, 
                           return_flow = FALSE) {
   # browser()
@@ -666,6 +724,7 @@ simple_model_wrapper <- function(p, p_names, default_pars, dt_hours, forcing_raw
 
 }
 
+#' @export
 replace_missing_by_name <- function(target, source, missing_val = -999) {
 
   if (!is.numeric(target) || !is.numeric(source)) {

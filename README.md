@@ -1,26 +1,26 @@
 # NWRFC Autocalibration Framework
 
 ## Description
-This repository contains a version of the Northwest River Forecast Center (NWRFC) autocalibration tool for parameterizing the National Weather Service River Forecast System (NWSRFS) models using an evolving dynamically dimensioned search (EDDS). NWSRFS, originally developed in the late 1970s, remains a core component of the NWS Community Hydrologic Prediction System (CHPS).  This framework supports simultaneous calibration of a suite of NWSRFS models across multiple zones, including: SAC-SMA, SNOW17, Unit Hydrograph, LAGK, CHANLOSS, and CONS_USE.  See the [NWSRFS documentation](https://www.weather.gov/owp/oh_hrl_nwsrfs_users_manual_htm_xrfsdocpdf) for more detail on each individual model.
+This repository contains a version of the Northwest River Forecast Center (NWRFC) autocalibration tool for parameterizing the National Weather Service River Forecast System (NWSRFS) models using an evolving dynamically dimensioned search (EDDS). NWSRFS, originally developed in the late 1970s, remains a core component of the NWS Community Hydrologic Prediction System (CHPS).  This framework supports simultaneous calibration of a suite of NWSRFS models across multiple zones, including: SAC-SMA, SNOW-17, Unit Hydrograph, LAG-K, CHANLOSS, and CONS_USE.  See the [NWSRFS documentation](https://www.weather.gov/owp/oh_hrl_nwsrfs_users_manual_htm_xrfsdocpdf) for more detail on each individual model.
 
 **Language:** R  
-**Package Dependency:** [nwrfc-hydro R package](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models)  
+**Package Dependency:** [nwsrfs-hydro-models R package](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models/nwsrfs_r)  
 
 
 ## Prerequisites
 
 1. Install [R](http://r-project.org). 
 
-2. Install these R packages: 
+2. Install pixi:
 
-        install.packages(c('xfun','import','devtools'))
+    https://pixi.prefix.dev/latest/
 
-3. Install the `rfchydromodels` R package which requires a Fortran complier. This package has been tested with [gfortran](https://gcc.gnu.org/wiki/GFortran). See [here](https://cran.r-project.org/bin/macosx/tools/) for an easy option on MacOS.
+3. Install the `nwsrfsr` R package which requires a Fortran complier. This package has been tested with [gfortran](https://gcc.gnu.org/wiki/GFortran). See [here](https://cran.r-project.org/bin/macosx/tools/) for an easy option on MacOS.
     
 From R:
 
 ```R
-devtools::install_github('NOAA-NWRFC/nwsrfs-hydro-models',subdir='rfchydromodels')
+devtools::install_github('NOAA-NWRFC/nwsrfs-hydro-models',subdir='nwsrfs_r')
 ```
 
 or from the command line:
@@ -28,16 +28,27 @@ or from the command line:
 ```bash
 git clone https://github.com/NOAA-NWRFC/nwsrfs-hydro-models.git
 cd nwsrfs-hydro-models
-R CMD INSTALL rfchydromodels
+R CMD INSTALL nwsrfsr
 ```
 
-4. The autocalibration scripts will try to install a number of R packages when run. If this fails you may need to install the packages manually. 
+4. Install the `box` R package (used for module imports):
+
+```R
+install.packages("box")
+```
+
+5. Install the remaining R package dependencies. The required packages are listed in the `box::use()` calls at the top of each script. Install any missing packages from CRAN:
+
+```R
+install.packages(c("dplyr", "data.table", "dtplyr", "hydroGOF", "digest",
+                    "lubridate", "readr", "tibble", "ggplot2", "ggthemes",
+                    "crayon", "argparser", "rtop", "stringr", "tidyr",
+                    "vctrs", "plotly", "gridExtra", "rlang", "rmarkdown"))
+```
 
 **NOTES:**
 
-1. Due to its use of fork-based parallelism, the tool is not compatible with Windows systems.
-
-2. The code has been tested only with a 6-hour timestep. Use with other timesteps may require additional configuration and validation.
+The code has been tested only with a 6-hour timestep. Use with other timesteps may require additional configuration and validation.
 
 ## Example Installation on a Rocky 8 System
 
@@ -80,7 +91,23 @@ There are two basin directories included in this repo that serve as examples whi
 | GETT2  | SFRK SNGBRL GEORGTWN, TX  |   |1     |  |
 | DNGT2  | LAMPASAS RVR-DING DONG,TX |   |1     |  |
 
-*supporting files are stored in the `runs/` directory
+*supporting files are stored in the `runs/` directory in the repo
+
+**Archived sample Data**: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.18829935.svg)](https://doi.org/10.5281/zenodo.18829935)
+
+Input data for the example basins is archived on Zenodo for reproducibility. 
+
+## Set up the auto calibration scripts and the environmennt
+
+    # get repo with auto-calibhration scripts
+    # sample data is in the repo already, but is also archived on zenodo
+    # https://doi.org/10.5281/zenodo.18829935
+    git clone https://github.com/NOAA-NWRFC/nwsrfs-hydro-autocalibration.git
+    cd nwsrfs-hydro-autocalibration
+    # set up environment
+    pixi install
+    # now you are ready to run the workflow below
+
 
 ### Example Workflow 
  We recommend that you complete at least 4 cross validation runs in addition to the full period of record run to evaluate the calibration for any potential issues.
@@ -119,13 +146,13 @@ Refer to the example basins in the `runs/` directory for the expected directory 
 
 **Optional Files:**
 - `forcing_validation_cv_[fold #]_[LID]-[zone #].csv`: Forcing data for cross-validation folds. Note that the data for each cross validation fold must be created manually by subsetting your data, but any number of folds is possible. as long as they split the data into even groups. 
-- `upflow_[RR LID].csv`: Upstream flow data for routing reach (LAGK model). A reach may have more than one routed upstream flow input. 
+- `upflow_[RR LID].csv`: Upstream flow data for routing reach (LAG-K model). A reach may have more than one routed upstream flow input. 
 
 **Notes:**
 - `LID`: 5-character basin ID (e.g., `FSSO3`). Note that this is an arbitrary basin identification code, you may swap in any unique 5 character alphanumeric identifier. 
 - `zone #`: Numeric zone ID (at least one required)
 - `fold #`: Numeric ID for cross-validation fold, starting at 1. 
-- `RR LID`: Upstream reach LID (e.g., `WCHW1` for LAGK optimization)
+- `RR LID`: Upstream reach LID (e.g., `WCHW1` for LAG-K optimization)
 - Need at least one daily or instanteous flow file for autocalibration 
 
 ## Autocalibration Steps
@@ -287,9 +314,9 @@ Each zone requires:
 
 ### AdjustQ
 
-For LAGK calibration, upstream flows are derived using [AdjustQ](https://publicwiki.deltares.nl/display/FEWSDOC/AdjustQ).  
+For LAG-K calibration, upstream flows are derived using [AdjustQ](https://publicwiki.deltares.nl/display/FEWSDOC/AdjustQ).  
 
-See [nwrfc-hydro R package](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models) for [equivalent Python code](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models/blob/main/py-rfchydromodels/utilities/adjustq.py).
+See [nwsrfs-hydro-models](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models) for equivalent [R](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models/nwsrfs_r) or [Python](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models/nwsrfs_py) utility as part of their respective packages.
 
 ### Forcing Climatological Corrections
 
@@ -308,7 +335,8 @@ In the NWRFC autocalibration scheme, mid-month climatological adjustment factors
 
 Please cite the following work when using this tool:
 
-Walters, G., Bracken, C., et al., "A comprehensive calibration framework for the Northwest River Forecast Center." Unpublished manuscript, Submitted 2025, [Preprint](https://eartharxiv.org/repository/view/8993/)
+Walters, G., Bracken, C., et al., "A comprehensive calibration framework for the Northwest River Forecast Center." Journal of the American Water Resources Association (JAWRA), accepted for publication in 2026. [Preprint](https://eartharxiv.org/repository/view/8993/)
+
 
 If adapting this code, please credit this repository as the original source. 
 

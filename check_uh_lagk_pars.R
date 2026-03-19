@@ -1,8 +1,7 @@
-#!/usr/bin/env Rscript
 
-.libPaths(c('/data/zcui/bin/R/library', .libPaths()))
-
-library(data.table)
+box::use(
+  data.table[is.data.table]
+)
 
   #' Match rows in a data.table using one of two pattern lists.
   #'
