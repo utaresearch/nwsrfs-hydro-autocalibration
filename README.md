@@ -1,10 +1,10 @@
 # NWRFC Autocalibration Framework
 
 ## Description
-This repository contains a version of the Northwest River Forecast Center (NWRFC) autocalibration tool for parameterizing the National Weather Service River Forecast System (NWSRFS) models using an evolving dynamically dimensioned search (EDDS). NWSRFS, originally developed in the late 1970s, remains a core component of the NWS Community Hydrologic Prediction System (CHPS).  This framework supports simultaneous calibration of a suite of NWSRFS models across multiple zones, including: SAC-SMA, SNOW-17, Unit Hydrograph, LAG-K, CHANLOSS, and CONS_USE.  See the [NWSRFS documentation](https://www.weather.gov/owp/oh_hrl_nwsrfs_users_manual_htm_xrfsdocpdf) for more detail on each individual model.
+This repository contains a fork of the Northwest River Forecast Center (NWRFC) autocalibration tool for parameterizing the National Weather Service River Forecast System (NWSRFS) models using an evolving dynamically dimensioned search (EDDS). NWSRFS, originally developed in the late 1970s, remains a core component of the NWS Community Hydrologic Prediction System (CHPS).  This framework supports simultaneous calibration of a suite of NWSRFS models across multiple zones, including: SAC-SMA, SNOW-17, Unit Hydrograph, LAG-K, CHANLOSS, and CONS_USE.  See the [NWSRFS documentation](https://www.weather.gov/owp/oh_hrl_nwsrfs_users_manual_htm_xrfsdocpdf) for more detail on each individual model.
 
 **Language:** R  
-**Package Dependency:** [nwsrfs-hydro-models R package](https://github.com/NOAA-NWRFC/nwsrfs-hydro-models/nwsrfs_r)  
+**Package Dependency:** [nwsrfs-hydro-models R package](https://github.com/utaresearch/nwsrfs-hydro-models/nwsrfs_r)  
 
 
 ## Prerequisites
@@ -20,13 +20,13 @@ This repository contains a version of the Northwest River Forecast Center (NWRFC
 From R:
 
 ```R
-devtools::install_github('NOAA-NWRFC/nwsrfs-hydro-models',subdir='nwsrfs_r')
+devtools::install_github('utaresearch/nwsrfs-hydro-models',subdir='nwsrfs_r')
 ```
 
 or from the command line:
 
 ```bash
-git clone https://github.com/NOAA-NWRFC/nwsrfs-hydro-models.git
+git clone https://github.com/utaresearch/nwsrfs-hydro-models.git
 cd nwsrfs-hydro-models
 R CMD INSTALL nwsrfsr
 ```
@@ -70,16 +70,17 @@ install.packages(c("curl"))
 install.packages(c('pkgdown'))
 install.packages(c('xfun','import','devtools'))
 install.packages("RPostgres")
-devtools::install_github('utaresearch/nwsrfs-hydro-models',subdir='rfchydromodels')
+devtools::install_github('utaresearch/nwsrfs-hydro-models',subdir='nwsrfs_r')
 install.packages(c("gridExtra"))
+install.packages(c("box"))
 ```
-If install form a local repository,
+If install from a local repository,
 ```bash
 export R_LIBS="/opt/libcurl_8_3_0/lib"
 export LD_LIBRARY_PATH=/opt/libcurl_8_3_0/lib:$LD_LIBRARY_PATH
 git clone https://github.com/utaresearch/nwsrfs-hydro-models.git
 cd nwsrfs-hydro-models
-R CMD INSTALL rfchydromodels
+R CMD INSTALL nwsrfs_r
 ```
 
 ## Example Calibrations
@@ -88,8 +89,10 @@ There are two basin directories included in this repo that serve as examples whi
 **Example Basins**
 | NWSLI ID  |  Name | USGS # | Zones | Description |
 |--------|-------|-------|-------|-------------|
-| GETT2  | SFRK SNGBRL GEORGTWN, TX  |   |1     |  |
-| DNGT2  | LAMPASAS RVR-DING DONG,TX |   |1     |  |
+| GETT2  | SFRK SNGBRL GEORGTWN, TX  |   |1     | non-parameterized UH  |
+| DNGT2  | LAMPASAS RVR-DING DONG,TX |   |1     | Parameterized UH and LagK |
+| DSBT2  | De Leon - Sabana River,TX |   |1     | Parameterized UH |
+| GETT2  | SFRK SNGBRL GEORGTWN, TX  |   |2     | non-parameterized UH  |
 
 *supporting files are stored in the `runs/` directory in the repo
 
@@ -138,7 +141,7 @@ Refer to the example basins in the `runs/` directory for the expected directory 
 [LID]/
   ├── flow_daily_[LID].csv             # Daily average flow observations (optional)
   ├── flow_instantaneous_[LID].csv     # Instantaneous flow observations (optional)
-  ├── forcing_por_[LID]-[zone #].csv   # Forcing data for each zone (MAP, MAT, PTPS)
+  ├── forcing_por_[LID]-[zone #].xml   # Forcing data for each zone (MAP, MPE)
   ├── pars_default.csv                 # Default parameter file (-99 indicates the parameter will be optimized)
   ├── pars_limits.csv                  # Upper/lower limits for parameters that are optimized
   ├── [optional files...]
@@ -147,6 +150,7 @@ Refer to the example basins in the `runs/` directory for the expected directory 
 **Optional Files:**
 - `forcing_validation_cv_[fold #]_[LID]-[zone #].csv`: Forcing data for cross-validation folds. Note that the data for each cross validation fold must be created manually by subsetting your data, but any number of folds is possible. as long as they split the data into even groups. 
 - `upflow_[RR LID].csv`: Upstream flow data for routing reach (LAG-K model). A reach may have more than one routed upstream flow input. 
+- `LAGK_[LID]_[RR LID]_UpdateStates.xml`: CHPS LagK parameters for routing reach (LAG-K model). A reach may have more than one routed upstream flow input. 
 
 **Notes:**
 - `LID`: 5-character basin ID (e.g., `FSSO3`). Note that this is an arbitrary basin identification code, you may swap in any unique 5 character alphanumeric identifier. 
