@@ -43,12 +43,8 @@ install.packages("box")
 install.packages(c("dplyr", "data.table", "dtplyr", "hydroGOF", "digest",
                     "lubridate", "readr", "tibble", "ggplot2", "ggthemes",
                     "crayon", "argparser", "rtop", "stringr", "tidyr",
-                    "vctrs", "plotly", "gridExtra", "rlang", "rmarkdown"))
+                    "vctrs", "plotly", "gridExtra", "rlang", "rmarkdown", "fitdistrplus"))
 ```
-
-**NOTES:**
-
-The code has been tested only with a 6-hour timestep. Use with other timesteps may require additional configuration and validation.
 
 ## Example Installation on a Rocky 8 System
 
@@ -287,6 +283,27 @@ Once `run-controller.R` has been ran and the `pars_optimal.csv` file has been cr
 - Bootstrapping draws `x`-year samples from POR (where `x` = average CV fold length).
   - 8,000 bootstrap iterations performed.
   
+### 4. `find_gamma_uh_params.R`
+This script is used to find the Gamma unit uydrograph parameters from a given list of unit hydrograph ordinates. It takes one argument, that is the `par_default.csv` file.
+The script will print the results on the screen and save the results in a CSV file, `pars_default_gamma_params.csv`, in the same directory as the input file. 
+
+**Example:**
+```bash
+Rscript ./find_gamma_uh_params.R runs/1zone/GETT2/par_default.csv
+```
+**Notes:**
+- It doen't support multiple zones. The `par_default.csv` file can have parameters only for one zone.
+- The input file `par_default.csv` has the same format as the input file to `run-controller.R` and  must contain the unit hydrograph ordinates.
+
+### 4. `find_lagk_params.R`
+This script is used to find the lagk parameters from a given Lag table and a given K table. It takes one argument which is the CHPS LagK module parameter file in the PIXML format.
+The script will print the results on the screen and save the results in a CSV file, such as `LAGK_WBZT2_BBZT2_UpdateStates_lagk_params.csv`, in the same directory as the input file. 
+
+**Example:**
+```bash
+Rscript ./find_lagk_params.R runs/LAGK_WBZT2_BBZT2_UpdateStates.xml
+```
+
 ## Additional Info
 
 #### Help

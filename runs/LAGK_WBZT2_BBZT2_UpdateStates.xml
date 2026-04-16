@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<parameters
+    xsi:schemaLocation="http://www.wldelft.nl/fews/PI http://fews.wldelft.nl/schemas/version1.0/pi-schemas/pi_modelparameters.xsd"
+    version="1.5" xmlns="http://www.wldelft.nl/fews/PI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <group id="default">
+        <parameter id="LAGQ_PAIRS">
+            <description></description>
+            <table>
+                <columnTypes A="double" B="double"/>
+                <row A="18.000" B="1.000"/>
+                <row A="18.000" B="10000.110"/>
+                <row A="12" B="20000.229"/>
+                <row A="12.000" B="40000.477"/>
+                <row A="18.000" B="80000.945"/>
+                <row A="24.000" B="100001.203"/>
+                <row A="30.000" B="120001.438"/>
+                <row A="36.000" B="200002.406"/>
+                <row A="36.000" B="1000011.000"/>
+            </table>
+        </parameter>
+        <parameter id="KQ_PAIRS">
+            <description></description>
+            <table>
+                <columnTypes A="double" B="double"/>
+                <row A="2" B="0.000"/>
+                <row A="6" B="40000.477"/>
+                <row A="12" B="80000.945"/>
+                <row A="48" B="100001.203"/>
+                <row A="90.000" B="120001.438"/>
+                <row A="144.000" B="200002.406"/>
+                <row A="36.000" B="1000011.000"/>
+            </table>
+        </parameter>
+        <parameter id="NUMBER_OF_KQ_PAIRS">
+            <description></description>
+            <intValue>7</intValue>
+        </parameter>
+        <parameter id="INFLOW_TS_DATA_TYPE">
+            <description></description>
+            <stringValue>SQIN</stringValue>
+        </parameter>
+        <parameter id="OUTFLOW_TS_DATA_TYPE">
+            <description></description>
+            <stringValue>SQIN</stringValue>
+        </parameter>
+        <parameter id="TRANSMISSION_LOSS_THRESHOLD_FLOW">
+            <description></description>
+            <dblValue>0.0</dblValue>
+        </parameter>
+        <parameter id="METR_OR_ENGL_UNITS">
+            <description></description>
+            <stringValue>ENGL</stringValue>
+        </parameter>
+        <parameter id="INFLOW_TS_ID">
+            <description></description>
+            <stringValue>BBZT2</stringValue>
+        </parameter>
+        <parameter id="OUTFLOW_TS_INTERVAL">
+            <description></description>
+            <intValue>3</intValue>
+        </parameter>
+        <parameter id="INFLOW_TS_INTERVAL">
+            <description></description>
+            <intValue>3</intValue>
+        </parameter>
+        <parameter id="TRANSMISSION_LOSS_COEFFICIENT">
+            <description></description>
+            <dblValue>0.0</dblValue>
+        </parameter>
+        <parameter id="OUTFLOW_TS_ID">
+            <description></description>
+            <stringValue>BBZT2R</stringValue>
+        </parameter>
+        <parameter id="NUMBER_OF_LAGQ_PAIRS">
+            <description></description>
+            <intValue>9</intValue>
+        </parameter>
+        <parameter id="CONSTANT_K_VALUE">
+            <description></description>
+            <dblValue>0.0</dblValue>
+        </parameter>
+        <parameter id="CONSTANT_LAG_VALUE">
+            <description></description>
+            <dblValue>0.0</dblValue>
+        </parameter>
+    </group>
+</parameters>
