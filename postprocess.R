@@ -580,7 +580,9 @@ for (basin in basins) {
     if ( calib_uh ){
      for (z in zones) {
       # convert sqkm to sqmi
-      area_sqmi <- optimal_pars[zone == z & name == "zone_area"]$value * 0.386102
+      #area_sqmi <- optimal_pars[zone == z & name == "zone_area"]$value * 0.386102
+      #zone_area is already in sqmi
+      area_sqmi <- optimal_pars[zone == z & name == "zone_area"]$value
       shape <- optimal_pars[zone == z & name == "unit_shape"]$value
       toc_gis <- optimal_pars[zone == z & name == "unit_toc"]$value
       toc_adj <- optimal_pars[zone == z & name == "unit_toc_adj"]$value
