@@ -284,17 +284,13 @@ Once `run-controller.R` has been ran and the `pars_optimal.csv` file has been cr
   - 8,000 bootstrap iterations performed.
   
 ### 4. `find_gamma_uh_params.R`
-This script is used to find the Gamma unit uydrograph parameters from a given list of unit hydrograph ordinates. It takes one argument, that is the `par_default.csv` file.
-The script will print the results on the screen and save the results in a CSV file, `pars_default_gamma_params.csv`, in the same directory as the input file. 
+This script is used to find the Gamma unit uydrograph parameters from a given list of unit hydrograph ordinates. It takes one argument in the CHSP unit hydrograph module parameter file format, for example the `UNITHG_GETT2_GETT2_UpdateStates.xml` file.
+The script will print the results on the screen and save the results in a CSV file, `UNITHG_GETT2_GETT2_UpdateStates_gamma_params.csv`, in the same directory as the input file. 
 
 **Example:**
 ```bash
-Rscript ./find_gamma_uh_params.R runs/1zone/GETT2/par_default.csv
+Rscript ./find_gamma_uh_params.R runs/UNITHG_GETT2_GETT2_UpdateStates_gamma_params.csv
 ```
-**Notes:**
-- It doen't support multiple zones. The `par_default.csv` file can have parameters only for one zone.
-- The input file `par_default.csv` has the same format as the input file to `run-controller.R` and  must contain the unit hydrograph ordinates.
-
 ### 4. `find_lagk_params.R`
 This script is used to find the lagk parameters from a given Lag table and a given K table. It takes one argument which is the CHPS LagK module parameter file in the PIXML format.
 The script will print the results on the screen and save the results in a CSV file, such as `LAGK_WBZT2_BBZT2_UpdateStates_lagk_params.csv`, in the same directory as the input file. 

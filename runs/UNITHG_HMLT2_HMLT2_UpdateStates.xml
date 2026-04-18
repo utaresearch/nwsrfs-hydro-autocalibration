@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<parameters
+    xsi:schemaLocation="http://www.wldelft.nl/fews/PI http://fews.wldelft.nl/schemas/version1.0/pi-schemas/pi_modelparameters.xsd"
+    version="1.5" xmlns="http://www.wldelft.nl/fews/PI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+    <group id="default" readonly="false" modified="false">
+        <parameter id="UHG_DURATION" name="UHG_DURATION">
+            <description></description>
+            <intValue>3</intValue>
+        </parameter>
+        <parameter id="UNIT" name="UNIT">
+            <description></description>
+            <stringValue>ENGLISH</stringValue>
+        </parameter>
+        <parameter id="UHG_INTERVAL" name="UHG_INTERVAL">
+            <description></description>
+            <intValue>3</intValue>
+        </parameter>
+        <parameter id="DRAINAGE_AREA" name="DRAINAGE_AREA">
+            <description></description>
+            <dblValue>647.1</dblValue>
+        </parameter>
+        <parameter id="CONSTANT_BASE_FLOW" name="CONSTANT_BASE_FLOW">
+            <description></description>
+            <dblValue>0.0</dblValue>
+        </parameter>
+        <parameter id="UHG_ORDINATES" name="UHG_ORDINATES">
+            <description></description>
+            <table>
+                <columnTypes A="double"/>
+                <row A="4260.91"/>
+                <row A="8521.93"/>
+                <row A="14048.28"/>
+                <row A="16079.49"/>
+                <row A="16258.45"/>
+                <row A="14409.25"/>
+                <row A="12202.15"/>
+                <row A="9935.39"/>
+                <row A="8444.1"/>
+                <row A="6817.52"/>
+                <row A="5862.04"/>
+                <row A="4906.55"/>
+                <row A="4105.94"/>
+                <row A="3305.43"/>
+                <row A="2711.48"/>
+                <row A="2117.53"/>
+                <row A="1652.71"/>
+                <row A="1187.89"/>
+                <row A="852.2"/>
+                <row A="516.51"/>
+                <row A="361.54"/>
+                <row A="206.56"/>
+                <row A="154.97"/>
+                <row A="103.28"/>
+                <row A="77.44"/>
+                <row A="51.69"/>
+                <row A="25.85"/>
+                <row A="0.0"/>
+            </table>
+        </parameter>
+    </group>
+</parameters>

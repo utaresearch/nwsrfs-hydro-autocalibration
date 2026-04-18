@@ -1,9 +1,7 @@
-#!/usr/bin/env Rscript
-
-library(xml2)
-library(XML)
-library(data.table)
-
+box::use(
+  data.table[data.table],
+  xml2[...]
+)
 
 get_uhg_params <- function( parpixmlfile ){
 
@@ -21,12 +19,10 @@ get_uhg_params <- function( parpixmlfile ){
   for ( p in params){
     id <- xml_attr(p, "id")
     #value <- as.numeric( xml_text( xml_find_first( p, "./d1:dblValue", ns ) ) )
-    print( id )
     if ( id == "UHG_ORDINATES" ){
       ords <- xml_find_all( p, "./d1:table/d1:row", ns )
       for ( o in ords ){
         ord = as.numeric( xml_attr(o, "A") )
-        print( ord )
 	uhg_ordinates <- c( uhg_ordinates, ord )
       }
     }
@@ -50,14 +46,13 @@ get_uhg_params <- function( parpixmlfile ){
 		    as.numeric( xml_text( xml_find_first( p, "./d1:dblValue", ns ) ) )
     }
   }
-  if ( unit == "ENGLISH" ){
-     # square mile to square km
-     drainage_area <- drainage_area * 2.58998811 # 1 square mile = 2.59 square kilometers
-     #convert ordinates from CFS per INCH to CMS per MM
-     uhg_ordinates <- uhg_ordinates / 35.3147  # 35.3147 FT3 = 1 M3
-     uhg_ordinates <- uhg_ordinates / 25.4     # 1 IN = 25.4 MM
-  }
-
+#  if ( unit == "ENGLISH" ){
+#     # square mile to square km
+#     drainage_area <- drainage_area * 2.58998811 # 1 square mile = 2.59 square kilometers
+#     #convert ordinates from CFS per INCH to CMS per MM
+#     uhg_ordinates <- uhg_ordinates / 35.3147  # 35.3147 FT3 = 1 M3
+#     uhg_ordinates <- uhg_ordinates / 25.4     # 1 IN = 25.4 MM
+#  }
 
   return( list( constant_base_flow = baseflow, 
                 uhg_interval = uhg_interval,
