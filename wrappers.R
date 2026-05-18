@@ -450,7 +450,7 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
       tidyr[fill],
       hydroGOF[NSE, pbias, rPearson, KGE],
       nwsrfsr[sac_snow_uh, sac_snow_uh_lagk, lagk, chanloss,
-              consuse, fa_nwrfc],
+              consuse, fa_nwrfc, apply_pe_adj, sac_only_uh, sac_only_uh_lagk],
       obj_funs = ./obj_fun
     )
   })
@@ -458,7 +458,7 @@ ep_dds <- function(fn, p_bounds, t_iter = 1000, n_cores = 4, r = 0.2, ...) {
   #Export wrapper functions to the clusters
   clusterExport(
     cl = my_cluster,
-    varlist = c("update_params", "update_cu_params", "inst_to_ave", "model_wrapper"),
+    varlist = c("update_params", "update_cu_params", "inst_to_ave", "model_wrapper", "uta_model_wrapper"),
     envir = environment()
   )
   

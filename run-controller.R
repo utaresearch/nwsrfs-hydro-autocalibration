@@ -96,6 +96,8 @@ if (is.character(n_cores) & toupper(n_cores) != "FULL") {
   n_cores <- detectCores() - 2
 }
 
+if ( n_cores < 1 ) n_cores <- 1
+
 basin_dir <- file.path(output_dir, basin)
 # CHECK IF DIR ARGUMENT EXISTS
 if (!file.exists(basin_dir)) {
