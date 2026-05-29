@@ -302,6 +302,43 @@ for (basin in basins) {
     optimal_sim_daily <- inst_to_ave(forcing, optimal_sim_raw, agg_to_daily = TRUE) #|>
     # merge(obs_daily,by=c('year','month','day'))
 
+    #########################################
+    # Baseline simulation (if pars_baseline.csv exists)
+    #########################################
+
+    baseline_pars_file <- file.path(basin_dir, "pars_baseline.csv")
+    if (file.exists(baseline_pars_file)) {
+      baseline_pars <- fread(baseline_pars_file)
+      baseline_pars <- baseline_pars[order(zone, name)]
+
+      baseline_calib_uh <- calibrate_uh(baseline_pars)
+      baseline_calib_lagk <- if (n_upstream > 0) calibrate_lagk(baseline_pars) else NULL
+
+      if (n_zones > 0) {
+        baseline_forcing <- apply_pe_adj(dt_hours, forcing_raw, baseline_pars, dry_run = FALSE)
+      } else {
+        baseline_forcing <- forcing_raw
+      }
+
+      if (n_upstream == 0) {
+        baseline_sim_raw <- sac_only_uh(dt_hours, baseline_forcing, baseline_pars, baseline_calib_uh)
+      } else if (n_zones == 0) {
+        baseline_sim_raw <- lagk(dt_hours, upflow, baseline_pars)
+        baseline_sim_raw <- chanloss(baseline_sim_raw, baseline_forcing, dt_hours, baseline_pars)
+      } else {
+        baseline_sim_raw <- sac_only_uh_lagk(dt_hours, baseline_forcing, upflow, baseline_pars,
+                                              baseline_calib_uh, baseline_calib_lagk)
+      }
+
+      baseline_sim_raw <- baseline_sim_raw * 35.314684921034  # cms to cfs
+
+      baseline_sim_6hr_ave <- inst_to_ave(baseline_forcing, baseline_sim_raw)
+      baseline_sim_daily <- inst_to_ave(baseline_forcing, baseline_sim_raw, agg_to_daily = TRUE)
+
+      write_csv(baseline_sim_daily, file.path(output_path, "baseline_daily.csv"))
+      write_csv(baseline_sim_6hr_ave, file.path(output_path, paste0("baseline_", dt_hours, "hr_ave.csv")))
+    }
+
     # Get sac and snow states
     if (n_zones > 0) {
       # re-run the optimal state sim
