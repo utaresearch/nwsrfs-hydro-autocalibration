@@ -33,7 +33,8 @@ box::use(
              inst_to_ave, run_controller_edds, uta_model_wrapper, simple_model_wrapper],
   ./get_fews_forcing[get_fews_forcing, get_fews_forcing_timestep],
   ./fews_lagk_pars[get_lagk_params, get_all_lagk_pars, add_lagk_pars_to_default_pars],
-  ./check_uh_lagk_pars[match_rows_exclusive, calibrate_uh, calibrate_lagk],
+  ./check_uh_lagk_pars[match_rows_exclusive, calibrate_uh, calibrate_lagk,
+                       check_uh_pars, check_lagk_pars],
   obj_funs = ./obj_fun
 )
 
@@ -210,6 +211,7 @@ cu <- ifelse(length(cu_zones) > 0, TRUE, FALSE)
 #dt_hours <- default_pars[ name == "interval" & type == "uh", value ]
 
 #check if calibrate UH
+check_uh_pars( default_pars )
 calib_uh <- calibrate_uh( default_pars )
 if (calib_uh) {
    cat(blue$bold("Using parameterized unit hydrograph! \n") )
@@ -281,6 +283,7 @@ calib_lagk <- NULL
 if (n_upstream > 0) {
   upstream_lids <- gsub("upflow_", "", gsub("\\.csv.*", "", basename(upflow_files)))
 #  print(upstream_lids)
+  check_lagk_pars( default_pars )
   calib_lagk <- calibrate_lagk( default_pars )
   if (calib_lagk){
       cat(blue$bold("Using parameterized LagK! \n") )
