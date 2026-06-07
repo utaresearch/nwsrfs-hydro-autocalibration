@@ -86,17 +86,33 @@ check_uh_pars <- function(default_pars) {
   uh_names <- default_pars[default_pars[["type"]] == "uh", ][["name"]]
 
   if (do_calibrate) {
-    required <- c("unit_shape", "unit_toc", "unit_toc_adj", "unit_scale")
+    has <- function(r) any(grepl(paste0("^", r), uh_names))
+    has_scale   <- has("unit_scale")
+    has_toc     <- has("unit_toc")
+    has_toc_adj <- has("unit_toc_adj")
+
+    if (!has("unit_shape")) {
+      message("Error: calibrate_uh is TRUE but required parameter 'unit_shape' is missing.")
+      quit(status = 1)
+    }
+
+    if (has_scale && (has_toc || has_toc_adj)) {
+      message("Error: calibrate_uh is TRUE but 'unit_scale' and 'unit_toc'/'unit_toc_adj' are mutually exclusive.")
+      quit(status = 1)
+    }
+
+    if (!has_scale && !has_toc) {
+      message("Error: calibrate_uh is TRUE but neither 'unit_scale' nor 'unit_toc' is present; one is required.")
+      quit(status = 1)
+    }
   } else {
     required <- c("duration", "interval", "baseflow", "unit_ord")
-  }
-
-  missing_pars <- required[!sapply(required, function(r) any(grepl(paste0("^", r), uh_names)))]
-
-  if (length(missing_pars) > 0) {
-    message("Error: The following required UH parameters are missing (calibrate_uh = ", do_calibrate, "):")
-    message(paste(" -", missing_pars, collapse = "\n"))
-    quit(status = 1)
+    missing_pars <- required[!sapply(required, function(r) any(grepl(paste0("^", r), uh_names)))]
+    if (length(missing_pars) > 0) {
+      message("Error: The following required UH parameters are missing (calibrate_uh = FALSE):")
+      message(paste(" -", missing_pars, collapse = "\n"))
+      quit(status = 1)
+    }
   }
 
   invisible(NULL)
