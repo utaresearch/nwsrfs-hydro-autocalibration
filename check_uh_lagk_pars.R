@@ -72,3 +72,64 @@ calibrate_lagk <- function( default_pars ){
 
   if ( lagk_type == "has1" ) FALSE else TRUE
 }
+
+
+check_uh_pars <- function(default_pars) {
+  do_calibrate <- tryCatch(
+    calibrate_uh(default_pars),
+    error = function(e) {
+      message("Error: Could not determine UH calibration mode: ", conditionMessage(e))
+      quit(status = 1)
+    }
+  )
+
+  uh_names <- default_pars[default_pars[["type"]] == "uh", ][["name"]]
+
+  if (do_calibrate) {
+    required <- c("unit_shape", "unit_toc", "unit_toc_adj", "unit_scale")
+  } else {
+    required <- c("duration", "interval", "baseflow", "unit_ord")
+  }
+
+  missing_pars <- required[!sapply(required, function(r) any(grepl(paste0("^", r), uh_names)))]
+
+  if (length(missing_pars) > 0) {
+    message("Error: The following required UH parameters are missing (calibrate_uh = ", do_calibrate, "):")
+    message(paste(" -", missing_pars, collapse = "\n"))
+    quit(status = 1)
+  }
+
+  invisible(NULL)
+}
+
+
+check_lagk_pars <- function(default_pars) {
+  do_calibrate <- tryCatch(
+    calibrate_lagk(default_pars),
+    error = function(e) {
+      message("Error: Could not determine lag-k calibration mode: ", conditionMessage(e))
+      quit(status = 1)
+    }
+  )
+
+  lagk_names <- default_pars[default_pars[["type"]] == "lagk", ][["name"]]
+
+  if (do_calibrate) {
+    required <- c("lagtbl_a", "lagtbl_b", "lagtbl_c", "lagtbl_d",
+                  "ktbl_a",   "ktbl_b",   "ktbl_c",   "ktbl_d",
+                  "lagk_lagmax", "lagk_kmax", "lagk_qmax",
+                  "lagk_lagmin", "lagk_kmin", "lagk_qmin")
+  } else {
+    required <- c("init_co_pars", "init_co_q_", "init_co_lag_")
+  }
+
+  missing_pars <- required[!sapply(required, function(r) any(grepl(paste0("^", r), lagk_names)))]
+
+  if (length(missing_pars) > 0) {
+    message("Error: The following required lag-k parameters are missing (calibrate_lagk = ", do_calibrate, "):")
+    message(paste(" -", missing_pars, collapse = "\n"))
+    quit(status = 1)
+  }
+
+  invisible(NULL)
+}
