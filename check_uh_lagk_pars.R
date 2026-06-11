@@ -136,7 +136,7 @@ check_lagk_pars <- function(default_pars) {
                   "lagk_lagmax", "lagk_kmax", "lagk_qmax",
                   "lagk_lagmin", "lagk_kmin", "lagk_qmin")
   } else {
-    required <- c("init_co_pars", "init_co_q_", "init_co_lag_")
+    required <- c("init_co_pairs", "init_co_q_", "init_co_lag_")
   }
 
   missing_pars <- required[!sapply(required, function(r) any(grepl(paste0("^", r), lagk_names)))]
