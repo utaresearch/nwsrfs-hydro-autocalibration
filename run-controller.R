@@ -431,8 +431,8 @@ if (length(unique(seeds)) != length(seeds)) {
 }
 
 # Can uncomment in case of error with non unique seeds
-# cat("Unique seeds:", length(unique(seeds)), "\n")
-# cat("Total workers:", length(seeds), "\n")
+cat("Unique seeds:", length(unique(seeds)), "\n")
+cat("Total workers:", length(seeds), "\n")
 
 #############################################################################
 #################### Create output plot
@@ -441,7 +441,7 @@ if (length(unique(seeds)) != length(seeds)) {
 f_trace$iter <- 1:nrow(f_trace)
 p_t <- ggplot(f_trace[-(1:100), ]) +
   geom_point(aes(iter, obj_fun)) +
-  labs(main = "Auto Calibration Evolution", x = "Iteration", y = "Objective Function Score") +
+  labs(title = "Auto Calibration Evolution", x = "Iteration", y = "Objective Function Score") +
   theme_bw()
 ggsave(sprintf("%s/objfun_trace.pdf", plot_path), p_t, width = 10, height = 8)
 
