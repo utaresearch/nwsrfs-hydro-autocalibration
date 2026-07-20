@@ -69,6 +69,7 @@ install.packages("RPostgres")
 devtools::install_github('utaresearch/nwsrfs-hydro-models',subdir='nwsrfs_r')
 install.packages(c("gridExtra"))
 install.packages(c("box"))
+install.packages(c("hydroEvents"))
 ```
 If install from a local repository,
 ```bash
@@ -291,7 +292,7 @@ The script will print the results on the screen and save the results in a CSV fi
 ```bash
 Rscript ./find_gamma_uh_params.R runs/UNITHG_GETT2_GETT2_UpdateStates_gamma_params.csv
 ```
-### 4. `find_lagk_params.R`
+### 5 `find_lagk_params.R`
 This script is used to find the lagk parameters from a given Lag table and a given K table. It takes one argument which is the CHPS LagK module parameter file in the PIXML format.
 The script will print the results on the screen and save the results in a CSV file, such as `LAGK_WBZT2_BBZT2_UpdateStates_lagk_params.csv`, in the same directory as the input file. 
 
@@ -299,7 +300,17 @@ The script will print the results on the screen and save the results in a CSV fi
 ```bash
 Rscript ./find_lagk_params.R runs/LAGK_WBZT2_BBZT2_UpdateStates.xml
 ```
+### 6 `create_cvfold_for_calibration.R`
+This script is used to create a forcing CV fold file for event based calibration. The forcing CV fold file is used to mask out observed values that are not wanted to be used during a calibration run. Thus if the forcing CV fold file contains only the datetime and values that are outside of the events, then the observed values not belonging to any events will be ignored. That means only events are calibrated. This tool utilizes the `hydroEvents` package to identify events. The `hydroEvents` package must be installed before using this script. It takes three arguments, the observed streamflow file in CSV format, the forcing PIXML file and a CV fold number. It'll create a new output file conforms the forcing CV fold file naming convention. 
 
+**Usage:**
+```bash
+Rscript .\create_cvfold_for_calibration.R  <flow_instantaneous.csv> <forcing_por_LID-zone.xml> <fold_num> 
+```
+**Example:**
+```bash
+Rscript .\create_cvfold_for_calibration.R ./1zone/PICT2/flow_instantaneous_PICT2.csv ./1zone/PICT2/forcing_por_PICT2-1.xml 1
+```
 ## Additional Info
 
 #### Help
