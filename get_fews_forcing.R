@@ -14,10 +14,13 @@ get_fews_forcing <- function( pixmlfile ){
 
   timezonenode <- xml_find_all( pixml, "/d1:TimeSeries/d1:timeZone", ns )
 
-  timezone = 0
-  if ( length(timezonenode) > 0  ){
-     
-     timezone = as.numeric( xml_text( timezonenode ) )
+  timezone <- 0
+  if (length(timezonenode) > 0) {
+    timezone <- as.numeric(xml_text(timezonenode))
+  }
+
+  if (length(timezone) != 1L || is.na(timezone) || !is.finite(timezone)) {
+    stop("Invalid timeZone in forcing file: ", pixmlfile)
   }
   series <- xml_find_all( pixml, "/d1:TimeSeries/d1:series", ns )
 
@@ -40,8 +43,26 @@ get_fews_forcing <- function( pixmlfile ){
         d <- xml_attr(e, "date")
         t <- xml_attr(e, "time")
         v <- xml_attr(e, "value")
-	timestr = format(as.POSIXct( paste(d,t), format = "%Y-%m-%d %H:%M:%S") 
-			 + abs(timezone)*60*60, "%Y%m%d%H%M%S"  ) 
+	# Parse as a fixed wall-clock value in UTC so the host's local timezone
+	# and daylight-saving rules cannot turn valid input times into NA.
+	local_clock <- as.POSIXct(
+	  paste(d, t),
+	  format = "%Y-%m-%d %H:%M:%S",
+	  tz = "UTC"
+	)
+
+	if (is.na(local_clock)) {
+	  stop("Invalid timestamp in ", pixmlfile,
+	       ": date=", d, ", time=", t)
+	}
+
+	# FEWS timeZone is the source's fixed offset from UTC.
+	utc_time <- local_clock - timezone * 60 * 60
+	timestr <- format(
+	  utc_time,
+	  format = "%Y%m%d%H%M%S",
+	  tz = "UTC"
+	)
         timestamp <- c(timestamp, timestr  ) 
         values <- append( values, as.numeric( v ) )
 	locationids <- append( locationids, id_text )
