@@ -6,8 +6,9 @@ This repository contains a fork of the Northwest River Forecast Center (NWRFC) a
 **Language:** R  
 **Package Dependency:** [nwsrfs-hydro-models R package](https://github.com/utaresearch/nwsrfs-hydro-models/nwsrfs_r)  
 
+## Installation
 
-## Prerequisites
+1. Install [R](http://r-project.org) (version 4.6.1 or later). Nothing else is required, no compiler and no system libraries.
 
 1. Install [R](http://r-project.org). 
 
@@ -45,7 +46,6 @@ install.packages(c("dplyr", "data.table", "dtplyr", "hydroGOF", "digest",
                     "crayon", "argparser", "rtop", "stringr", "tidyr",
                     "vctrs", "plotly", "gridExtra", "rlang", "rmarkdown", "fitdistrplus"))
 ```
-
 ## Example Installation on a Rocky 8 System
 
 1. Install libcurl-devel. If libcurl-devel is not installed at a default location, set the environmental variable. For example, if libcurl-devl is installed at /opt/libcurl
@@ -97,21 +97,11 @@ There are two basin directories included in this repo that serve as examples whi
 
 Input data for the example basins is archived on Zenodo for reproducibility. 
 
-## Set up the auto calibration scripts and the environmennt
-
-    # get repo with auto-calibhration scripts
-    # sample data is in the repo already, but is also archived on zenodo
-    # https://doi.org/10.5281/zenodo.18829935
-    git clone https://github.com/NOAA-NWRFC/nwsrfs-hydro-autocalibration.git
-    cd nwsrfs-hydro-autocalibration
-    # set up environment
-    pixi install
-    # now you are ready to run the workflow below
-
 
 ### Example Workflow 
  We recommend that you complete at least 4 cross validation runs in addition to the full period of record run to evaluate the calibration for any potential issues.
  
+ ```bash
     # period of record run
     ./run-controller.R --dir runs/1zone --objfun kge_NULL --basin GETT2 -n 1 
     ./run-controller.R --dir runs/1zone --objfun kge_NULL --basin DNGT2 -n 1 --lite --overwrite
@@ -126,11 +116,28 @@ Input data for the example basins is archived on Zenodo for reproducibility.
     ./postprocess.R --dir runs/1zone --basins DNGT2
 
     # cross-validation
-    ./cv_plots.R --dir runs/2zone --basins WGCM8
+    ./cv-plots.R --dir runs/2zone --basins WGCM8
+```
 
 Any of the example basins could be swapped into this same workflow.
 
-## Required Directory Structure
+## Repository Layout
+
+The three scripts you run directly live at the top level. Shared functions live in `R/`.
+
+```
+run-controller.R        # 1. calibrate
+postprocess.R           # 2. simulate and plot the calibrated parameters
+cv-plots.R              # 3. summarize cross validation
+R/
+  ├── wrappers.R        # model wrappers and the EDDS optimizer
+  ├── obj_fun.R         # objective functions, edit this to add your own
+  ├── metrics.R         # goodness-of-fit metrics
+  └── test-metrics.R    # optional check of metrics.R against reference implementation (hydroGOF)
+runs/                   # basin input data and calibration output
+```
+
+## Required Calibration Directory Structure
 
 Refer to the example basins in the `runs/` directory for the expected directory structure and file formats.
 
@@ -219,7 +226,7 @@ Default: `nselognse_NULL`
 | lognse_nse                 | nse.25wlognse.75w_npbias99th   |
 | lognse_kge                 | lognse.4W_nse1112010203m.6W    |
 
-To create a custom objective function, edit the [obj_fun.R](https://github.com/geoffrey-walters/nwrfc-hydro-evolvingDDS/blob/main/obj_fun.R) file and add your own function.
+To create a custom objective function, edit the [R/obj_fun.R](https://github.com/NOAA-NWRFC/nwsrfs-hydro-autocalibration/blob/main/R/obj_fun.R) file and add your own function.
 
 **Notes:**
 1. Do not include `_obj` portion of function name in argument.
@@ -227,7 +234,7 @@ To create a custom objective function, edit the [obj_fun.R](https://github.com/g
 3. Selection of objective function should consider availability of daily and instanteous flow observations.
 4. Errors in custom functions should produce descriptive messages when running `run-controller.R` starting with  
    `"Objective Function had the following error, exiting:"`
-5.   The [obj_fun.R](https://github.com/geoffrey-walters/nwrfc-hydro-evolvingDDS/blob/main/obj_fun.R) file includes additional guidance.
+5.   The [R/obj_fun.R](https://github.com/NOAA-NWRFC/nwsrfs-hydro-autocalibration/blob/main/R/obj_fun.R) file includes additional guidance.
  
 ### 2. `postprocess.R`
 
@@ -358,18 +365,37 @@ In the NWRFC autocalibration scheme, mid-month climatological adjustment factors
 [forcing]_std = 10
 [forcing]_shift = 0
 ```
-     
+
+### Goodness of Fit Metrics
+
+`R/metrics.R` implements the goodness-of-fit metrics from the published formulas
+cited in its header, so the calibration has no external metrics dependency. 
+Run the script below to test them against a reference implementation,
+the [hydroGOF](https://cran.r-project.org/package=hydroGOF) package.
+
+
+```bash
+    Rscript -e "install.packages('hydroGOF')"
+    ./R/test-metrics.R
+```
+
 ## Credits and References
 
 Please cite the following work when using this tool:
 
-Walters, G., Bracken, C., et al., "A comprehensive calibration framework for the Northwest River Forecast Center." Journal of the American Water Resources Association (JAWRA), accepted for publication in 2026. [Preprint](https://eartharxiv.org/repository/view/8993/)
-
+Walters, G., C. Bracken, B. Gillies, et al. 2026. “A Comprehensive Calibration Framework for the Northwest River Forecast Center.” *JAWRA Journal of the American Water Resources Association* 62, no. 2: e70112. [https://doi.org/10.1111/1752-1688.70112](https://doi.org/10.1111/1752-1688.70112)
 
 If adapting this code, please credit this repository as the original source. 
 
-## Acknowledgment
+## Acknowledgments
+
 The traditional dynamically dimensioned search (DDS) algorithm builds on original code by David Kneis ([david.kneis@tu-dresden.de](mailto:david.kneis@tu-dresden.de)). See: [dds.r GitHub](https://github.com/dkneis/mcu/blob/master/R/dds.r)
+
+The goodness-of-fit metrics in `R/metrics.R` are implemented from the primary
+literature cited in that file. Mauricio Zambrano-Bigiarini's
+[hydroGOF](https://cran.r-project.org/package=hydroGOF) package collects the same
+body of published metrics and served as the reference implementation these were
+validated against.
 
 ## Legal Disclaimer
 

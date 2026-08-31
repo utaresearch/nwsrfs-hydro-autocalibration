@@ -4,22 +4,19 @@
 # Please see the LICENSE file for license information
 
 box::use(
-  dplyr[filter, select, summarise, group_by, ungroup, mutate,
-        arrange, lag, lead, full_join, right_join, bind_rows],
+  dplyr[select, summarise, group_by, ungroup, mutate,
+        arrange, full_join, right_join],
   data.table[as.data.table, data.table, fread, merge.data.table, copy,
              melt.data.table, rbindlist, dcast.data.table, fwrite, setnames, nafill],
   dtplyr[lazy_dt],
-  hydroGOF[gof, NSE, rmse, mNSE, rSD, pbias, rPearson, KGE, KGElf, KGEnp],
-  digest[digest],
-  lubridate[ymd_hms],
-  readr[read_delim, read_csv, cols],
-  tibble[tibble, as_tibble, rownames_to_column],
+  ./R/metrics[gof],
+  readr[read_csv, cols],
+  tibble[tibble, as_tibble],
   ggplot2[...],
   ggthemes[colorblind_pal],
-  crayon[`%+%`, green, bold, bgGreen, blue, inverse, red, bgCyan],
-  stringr[str_subset, str_detect],
+  crayon[bold, blue, bgCyan],
+  stringr[str_subset],
   argparser[arg_parser, add_argument, parse_args],
-  tidyr[fill],
   parallel[detectCores],
   vctrs[vec_fill_missing],
   xml2[...],
@@ -29,13 +26,13 @@ box::use(
 
 # Local modules
 box::use(
-  ./wrappers[model_wrapper, update_params, update_cu_params,
+  ./R/wrappers[model_wrapper, update_params, update_cu_params,
              inst_to_ave, run_controller_edds, uta_model_wrapper, simple_model_wrapper],
   ./get_fews_forcing[get_fews_forcing, get_fews_forcing_timestep],
   ./fews_lagk_pars[get_lagk_params, get_all_lagk_pars, add_lagk_pars_to_default_pars],
   ./check_uh_lagk_pars[match_rows_exclusive, calibrate_uh, calibrate_lagk,
                        check_uh_pars, check_lagk_pars],
-  obj_funs = ./obj_fun
+  obj_funs = ./R/obj_fun
 )
 
 
@@ -51,9 +48,8 @@ parser <- arg_parser("Auto-calibration run controller", hide.opts = TRUE)
 parser <- add_argument(parser, "--dir", help = "Input directory path")
 parser <- add_argument(parser, "--basin", help = "Basin name")
 parser <- add_argument(parser, "--objfun", default = "nselognse_NULL", help = "Objective function name")
-parser <- add_argument(parser, "--optimizer", default = "edds", help = "Optimzer to use {edds [default],pso,dds}")
 parser <- add_argument(parser, "--cvfold", default = NA_integer_, help = "CV fold to run (integer 1-4)")
-parser <- add_argument(parser, "--num_cores", default = "FULL", help = "Number of cores to allocate for run, FULL uses all availavble cores -2")
+parser <- add_argument(parser, "--num_cores", default = "FULL", help = "Number of cores to allocate for run, FULL uses all available cores -2")
 parser <- add_argument(parser, "--por", flag = TRUE, help = "Do a period of record run [default]")
 parser <- add_argument(parser, "--overwrite", flag = TRUE, help = "Don't create new results dir, overwrite the first exising one", short = "-ov")
 parser <- add_argument(parser, "--lite", flag = TRUE, help = "Testing run with 1/2 the total optimizer iteration")
@@ -94,7 +90,8 @@ if (suppressWarnings(!is.na(as.numeric(n_cores)))) n_cores <- as.numeric(n_cores
 if (is.character(n_cores) & toupper(n_cores) != "FULL") {
   stop("num_cores argument not understood, exiting")
 } else if ((is.character(n_cores) & toupper(n_cores) == "FULL") | (n_cores > detectCores() - 2)) {
-  n_cores <- detectCores() - 2
+  #If system has less than 4 cores, makes special provision
+  n_cores <- ifelse(detectCores() < 4,min(detectCores(),2),detectCores() - 2)
 }
 
 if ( n_cores < 1 ) n_cores <- 1
