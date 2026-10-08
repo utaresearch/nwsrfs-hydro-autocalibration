@@ -57,7 +57,7 @@ jobs:
           install.packages(packages)
           install.packages("devtools", dependencies = c("Depends", "Imports", "LinkingTo"))
           remotes::install_deps(dependencies = TRUE)
-          devtools::install('utaresearch/nwsrfs-hydro-models/nwsrfs_r')
+          devtools::install_local('dependent-repo/nwsrfs_r')
         shell: Rscript {0}
       - name: Check
         run: rcmdcheck::rcmdcheck(args = "--no-manual", error_on = "error")
