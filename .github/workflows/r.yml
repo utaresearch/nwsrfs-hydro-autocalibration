@@ -45,8 +45,9 @@ jobs:
           sudo apt install libuv1-dev
       - name: Install dependencies
         run: |
-          packages <- c('xfun', 'import', 'devtools', 'RPostgres', 'gridExtra', 'fitdistrplus', 'hydroEvents', 'remotes', 'rcmdcheck')
+          packages <- c('xfun', 'import', 'RPostgres', 'gridExtra', 'fitdistrplus', 'hydroEvents', 'remotes', 'rcmdcheck')
           install.packages(packages)
+          install.packages("devtools", dependencies = c("Depends", "Imports", "LinkingTo"))
           remotes::install_deps(dependencies = TRUE)
           devtools::install_github('utaresearch/nwsrfs-hydro-models',subdir='nwsrfs_r')
         shell: Rscript {0}
