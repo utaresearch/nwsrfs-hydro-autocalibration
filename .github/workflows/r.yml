@@ -25,20 +25,34 @@ jobs:
         r-version: ['4.6.1']
 
     steps:
+         # 1. Check out the repository
       - uses: actions/checkout@v4
+         # 2. Check out the dependent repository
+      - name: Checkout dependent repository
+        uses: actions/checkout@v4
+        with:
+          repository: 'utaresearch/nwsrfs-hydro-models'
+          path: dependent-repo
       - name: Set up R ${{ matrix.r-version }}
-  #      uses: r-lib/actions/setup-r@f57f1301a053485946083d7a45022b278929a78a
         uses: r-lib/actions/setup-r@v2
         with:
           r-version: ${{ matrix.r-version }}
-      - name: Install curl-devel
+      - name: Install curl-devel and gfortran
         run: |
           sudo apt update
           sudo apt install libcurl4-openssl-dev
+          sudo apt install gfortran
       - name: Install dependencies
         run: |
+          install.packages(c('pkgdown'))
+          install.packages(c('xfun','import','devtools'))
+          install.packages(c('RPostgres'))
+          install.packages(c('gridExtra'))
+          install.packages(c('fitdistrplus'))
+          install.packages(c('hydroEvents'))
           install.packages(c("remotes", "rcmdcheck"))
           remotes::install_deps(dependencies = TRUE)
+          devtools::install_github('utaresearch/nwsrfs-hydro-models',subdir='nwsrfs_r')
         shell: Rscript {0}
       - name: Check
         run: rcmdcheck::rcmdcheck(args = "--no-manual", error_on = "error")
