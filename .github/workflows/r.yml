@@ -42,6 +42,7 @@ jobs:
           sudo apt update
           sudo apt install libcurl4-openssl-dev
           sudo apt install gfortran
+          sudo apt install libuv1-dev
       - name: Install dependencies
         run: |
           packages <- c('pkgdown', 'xfun', 'import', 'devtools', 'RPostgres', 'gridExtra', 'fitdistrplus', 'hydroEvents', 'remotes', 'rcmdcheck')
