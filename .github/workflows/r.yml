@@ -44,8 +44,6 @@ jobs:
           sudo apt install gfortran
           sudo apt install libuv1-dev
           sudo apt-get install -y \
-              libcurl4-openssl-dev \
-              libuv1-dev \
               libfontconfig1-dev \
               libfreetype6-dev \
               libharfbuzz-dev \
@@ -55,7 +53,7 @@ jobs:
               libjpeg-dev 
       - name: Install dependencies
         run: |
-          packages <- c('xfun', 'import', 'RPostgres', 'gridExtra', 'fitdistrplus', 'hydroEvents', 'remotes', 'rcmdcheck')
+          packages <- c('xfun', 'import', 'ragg', 'RPostgres', 'gridExtra', 'fitdistrplus', 'hydroEvents', 'remotes', 'rcmdcheck')
           install.packages(packages)
           install.packages("devtools", dependencies = c("Depends", "Imports", "LinkingTo"))
           remotes::install_deps(dependencies = TRUE)
