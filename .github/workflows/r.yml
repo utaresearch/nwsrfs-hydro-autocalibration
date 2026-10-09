@@ -71,4 +71,4 @@ jobs:
         run: Rscript -e 'sessionInfo(); cat("cores:", parallel::detectCores(), "\n")'
       - name: Calibrate 1 zone, period of record
         shell: bash
-        run: Rscript run-controller.R --dir runs/1zone --basin GAST2 --objfun kge_NULL --lite --num_cores 2 --overwrite
+        run: Rscript run-controller.R --dir runs/1zone --basin DNGT2 --objfun kge_NULL --lite --num_cores 2 --overwrite
