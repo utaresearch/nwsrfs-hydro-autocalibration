@@ -60,5 +60,6 @@ jobs:
           devtools::install('nwsrfs-models/nwsrfs_r')
         shell: Rscript {0}
       - name: Check
-        run: rcmdcheck::rcmdcheck(args = "--no-manual", error_on = "error")
+        run: rcmdcheck::rcmdcheck(args = c("--no-manual", "--no-install"), error_on = "error")
+  shell: Rscript {0}
         shell: Rscript {0}
