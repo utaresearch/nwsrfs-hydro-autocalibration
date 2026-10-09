@@ -53,7 +53,7 @@ jobs:
               libjpeg-dev 
       - name: Install dependencies
         run: |
-          packages <- c('xfun', 'import', 'ragg', 'RPostgres', 'gridExtra', 'fitdistrplus', 'hydroEvents', 'remotes', 'rcmdcheck', 'dplyr', 'box')
+          packages <- c('xfun', 'import', 'ragg', 'RPostgres', 'gridExtra', 'fitdistrplus', 'hydroEvents', 'remotes', 'rcmdcheck', 'dplyr', 'box', 'data.table')
           install.packages(packages)
           install.packages("devtools", dependencies = c("Depends", "Imports", "LinkingTo"))
           remotes::install_deps(dependencies = TRUE)
