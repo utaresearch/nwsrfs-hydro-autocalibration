@@ -57,7 +57,7 @@ jobs:
           'fitdistrplus', 'hydroEvents', 'remotes', 'rcmdcheck', 'dplyr',
           'box', 'data.table', 'dtplyr', 'readr', 'tibble', 'ggplot2',
           'ggthemes', 'crayon', 'stringr', 'argparser', 'parallel',
-          'vctrs', 'xml1', 'tidyr' )
+          'vctrs', 'xml2', 'tidyr' )
           install.packages(packages)
           install.packages("devtools", dependencies = c("Depends", "Imports", "LinkingTo"))
           remotes::install_deps(dependencies = TRUE)
