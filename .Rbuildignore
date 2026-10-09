@@ -1,1 +1,3 @@
+^dep-models$
+^dep-models/.*
 ^\.github$
